@@ -125,6 +125,11 @@ def poll_bright():
                     in_off = base_engine.is_offpeak(now_local())
                 except Exception:
                     in_off = False
+                    
+                # Seed both buckets on first success if both are zero
+                if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+                    store["elec"]["last_offpeak_rate"] = rate
+                    store["elec"]["last_peak_rate"] = rate
 
                 if in_off:
                     store["elec"]["last_offpeak_rate"] = rate
