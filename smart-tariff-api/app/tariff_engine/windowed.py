@@ -51,4 +51,3 @@ class WindowedEngine:
         if self.is_offpeak(ctx.now):
             return ctx.last_offpeak_rate or ctx.last_peak_rate
         return ctx.last_peak_rate or ctx.last_offpeak_rate
-``
