@@ -1,16 +1,21 @@
-from datetime import datetime
+# smart-tariff-api/app/tariff_engine/intelligent.py
 
-def within_any(now: datetime, windows):
+from datetime import datetime
+from typing import Iterable, Tuple
+
+def _within_any(now: datetime, windows: Iterable[Tuple[datetime, datetime]]) -> bool:
     for (s, e) in windows:
         if s <= now < e:
             return True
     return False
 
 class IntelligentEngine:
-    def current_rate(self, ctx, api_rate):
-        # If an intelligent dispatch window is active, treat as offpeak
-        if within_any(ctx.now, ctx.intelligent_windows):
-            return api_rate or ctx.last_offpeak_rate or ctx.last_peak_rate
-        # Otherwise fall back to peak/offpeak model if provided by outer profile
-        # This engine is meant to be composed with a base profile (E7/EV/etc.)
-        return api_rate or ctx.last_peak_rate or ctx.last_offpeak_rate
+    """
+    Overlay engine: if now is inside an intelligent dispatch window,
+    treat as off-peak; otherwise defer to the base engine's decision.
+    """
+    def current_rate(self, ctx, base_rate: float) -> float:
+        if _within_any(ctx.now, ctx.intelligent_windows):
+            # Prefer the stored off-peak rate if we have it; otherwise fall back to base
+            return ctx.last_offpeak_rate or base_rate
+        return base_rate
