@@ -201,11 +201,30 @@ def health():
         "mode": opts["tariff"]["mode"] if opts else None
     }
 
+
 @app.get("/electricity/current-rate")
 def electricity_current_rate():
     ctx = build_ctx(include_intel=True)
-    base_rate = base_engine.current_rate(ctx, None)
+
+    # If we have nothing stored yet, try to fetch current tariff as an API override
+    api_rate = None
+    if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+        try:
+            er = glow.get_electricity_resource()
+            if er:
+                t = glow.get_tariff(er)
+                api_rate = float(t.current_rates.rate)
+                # Also set standing charge if we don't have it
+                if (store["elec"]["standing_charge"] or 0.0) == 0.0:
+                    store["elec"]["standing_charge"] = float(t.current_rates.standing_charge)
+                    store_save(store)
+        except Exception:
+            api_rate = None
+
+    # Compose base + intelligent overlay:
+    base_rate = base_engine.current_rate(ctx, api_rate)
     rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
+
     payload = {
         "rate": rate,
         "standing_charge": store["elec"]["standing_charge"],
@@ -214,6 +233,7 @@ def electricity_current_rate():
     }
     mqtt_pub("electricity/current_rate", payload)
     return payload
+
 
 @app.get("/gas/current-rate")
 def gas_current_rate():
@@ -349,3 +369,32 @@ def gas_cost_today():
             "cost_total": None,
             "updated_utc": store["last_update"]
         }
+@app.get("/debug/entities")
+def debug_entities():
+    """List virtual entities/resources and any names we see (helps discovery)."""
+    try:
+        ents = glow.cli.get_virtual_entities()
+        out = []
+        for ent in ents:
+            res_list = []
+            for res in ent.get_resources():
+                res_list.append({"name": res.name, "id": getattr(res, "resource_id", None)})
+            out.append({"entity": getattr(ent, "name", None), "resources": res_list})
+        return {"entities": out}
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
+
+@app.get("/debug/tariff/electricity")
+def debug_tariff_electricity():
+    """Fetch tariff right now from Bright for the electricity resource."""
+    try:
+        er = glow.get_electricity_resource()
+        if not er:
+            return {"error": "No electricity resource found"}
+        t = glow.get_tariff(er)
+        return {
+            "rate": float(t.current_rates.rate),
+            "standing_charge": float(t.current_rates.standing_charge),
+        }
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}"}
