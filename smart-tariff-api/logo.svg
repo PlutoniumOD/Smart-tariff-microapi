@@ -1,0 +1,38 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Canvas is transparent by default -->
+
+  <!-- Rounded square guide (optional visual bounds; left transparent) -->
+  <!-- <rect x="16" y="16" width="480" height="480" rx="104" fill="none"/> -->
+
+  <!-- House silhouette (teal) -->
+  <path d="M108 244L256 128l148 116v148c0 17.7-14.3 32-32 32H140c-17.7 0-32-14.3-32-32V244z"
+        fill="#11A8A2"/>
+
+  <!-- Roof outline accents (slightly darker teal for visual depth) -->
+  <path d="M256 114L96 240l18 23 142-109 142 109 18-23-160-126z" fill="#0E8E89" opacity="0.9"/>
+
+  <!-- Circular smart-meter dial (yellow) -->
+  <circle cx="256" cy="298" r="86" fill="#FFD54A"/>
+
+  <!-- Dial inner circle (white/transparent hole styling) -->
+  <circle cx="256" cy="298" r="70" fill="#FFFFFF" opacity="0.85"/>
+
+  <!-- Dial tick marks (teal) -->
+  <g stroke="#11A8A2" stroke-width="8" stroke-linecap="round" opacity="0.9">
+    <line x1="256" y1="214" x2="256" y2="226"/>
+    <line x1="214" y1="240" x2="224" y2="250"/>
+    <line x1="298" y1="240" x2="288" y2="250"/>
+    <line x1="214" y1="356" x2="224" y2="346"/>
+    <line x1="298" y1="356" x2="288" y2="346"/>
+  </g>
+
+  <!-- Dial needle (teal) -->
+  <line x1="256" y1="298" x2="302" y2="270" stroke="#0E8E89" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="256" cy="298" r="8" fill="#0E8E89"/>
+
+  <!-- Subtle energy spark (small lightning) near dial edge (teal) -->
+  <path d="M330 276l-12 22h14l-10 20 26-30h-14l6-12h-10z" fill="#11A8A2" opacity="0.9"/>
+
+  <!-- Door notch (negative cut for readability; optional) -->
+  <rect x="232" y="328" width="48" height="62" rx="8" fill="#FFFFFF" opacity="0.85"/>
+</svg>
