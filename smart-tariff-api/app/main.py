@@ -110,6 +110,7 @@ def ensure_store():
 # ---------- Polling job ----------
 def poll_bright():
     global store
+    ensure_store()
     try:
         er = glow.get_electricity_resource()
         if er:
@@ -161,8 +162,10 @@ def poll_bright():
 @app.on_event("startup")
 def on_startup():
     global opts, store, zone, zone_name, glow, base_engine, intel_engine, mqtt
+    # 1) Options & store first
     opts = load_options()
-    store = store_load()
+    ensure_store()
+    # 2) Timezone, engines, clients
     zone_name = opts["tariff"]["timezone"]
     zone = tz.gettz(zone_name)
 
@@ -170,7 +173,7 @@ def on_startup():
     intel_engine = IntelligentEngine()
 
     glow = GlowClient(opts["glowmarkt"]["email"], opts["glowmarkt"]["password"])
-
+    # 3) MQTT (optional)
     if opts["mqtt"]["enabled"]:
         try:
             _mqtt = MQTTPublisher(
@@ -181,10 +184,13 @@ def on_startup():
         except Exception:
             _mqtt = None
         globals()["mqtt"] = _mqtt
-
+    # 4) Start the scheduler, then do a safe first poll
     start_scheduler(poll_bright)
-# Populate store immediately on boot so rates are available before the first cron tick
-poll_bright()
+    
+    try:
+        poll_bright()
+    except Exception as e:
+        logger.warning("Initial poll failed (will retry on schedule): %s", e)
 
 # ---------- Endpoints ----------
 @app.get("/health")
