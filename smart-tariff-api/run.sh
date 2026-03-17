@@ -1,16 +1,14 @@
-FROM python:3.12-slim
+#!/usr/bin/env bash
+set -euo pipefail
 
-ENV PIP_NO_CACHE_DIR=1     PYTHONUNBUFFERED=1
+# Home Assistant add-on passes options at /data/options.json
+if [ ! -f /data/options.json ]; then
+  echo "Missing /data/options.json (add-on options)."
+  exit 1
+fi
 
-RUN apt-get update && apt-get install -y --no-install-recommends     ca-certificates tzdata curl &&     rm -rf /var/lib/apt/lists/*
+# Make options path visible to the app
+export ADDON_OPTIONS_PATH="/data/options.json"
 
-WORKDIR /app
-COPY requirements.txt /app/
-RUN pip install -r requirements.txt
-
-COPY app /app/app
-COPY run.sh /run.sh
-RUN chmod +x /run.sh
-
-EXPOSE 8787
-CMD ["/run.sh"]
+# Use the virtualenv we created in the Dockerfile
+exec /app/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8787
