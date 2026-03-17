@@ -1,8 +1,14 @@
-fastapi==0.110.0
-uvicorn[standard]==0.27.1
-pyglowmarkt==0.5.6
-paho-mqtt==2.1.0
-APScheduler==3.10.4
-python-dateutil==2.9.0.post0
-pytz==2024.1
-tzdata==2024.1
+import json
+import paho.mqtt.client as mqtt
+
+class MQTTPublisher:
+    def __init__(self, host, port, username, password, prefix):
+        self.prefix = prefix.rstrip("/")
+        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        if username:
+            self.client.username_pw_set(username, password or None)
+        self.client.connect(host, port, keepalive=60)
+
+    def pub(self, topic, payload):
+        full = f"{self.prefix}/{topic.lstrip('/')}"
+        self.client.publish(full, json.dumps(payload), qos=0, retain=True)
