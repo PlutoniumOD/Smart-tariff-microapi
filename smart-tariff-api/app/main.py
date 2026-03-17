@@ -165,6 +165,8 @@ def on_startup():
         globals()["mqtt"] = _mqtt
 
     start_scheduler(poll_bright)
+# Populate store immediately on boot so rates are available before the first cron tick
+poll_bright()
 
 # ---------- Endpoints ----------
 @app.get("/health")
