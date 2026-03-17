@@ -1,0 +1,8 @@
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+pyglowmarkt==0.5.6
+paho-mqtt==2.1.0
+APScheduler==3.10.4
+python-dateutil==2.9.0.post0
+pytz==2024.1
+tzdata==2024.1
