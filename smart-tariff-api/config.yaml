@@ -17,15 +17,29 @@ options:
     email: ""
     password: ""
   tariff:
+    # Modes: e7 | go | flex | uw_ev | ovo_powermove | intelligent
+    # (Agile/Tracker later)
     mode: "e7"
+
+    # E7 baseline (GMT window; DST handled automatically)
     e7_offpeak_start_gmt: "00:30"
     e7_offpeak_end_gmt: "07:30"
+
     timezone: "Europe/London"
+
+    # Windowed EV modes (enter pairs of HH:MM,HH:MM for each off-peak window in GMT)
+    # Example for Octopus Go (UK historical default): "00:30","04:30"
+    go_windows_gmt: []           # e.g. ["00:30","04:30"]
+    uw_ev_windows_gmt: []        # e.g. ["00:00","05:00"] (fill with your supplier's actual windows)
+    ovo_windows_gmt: []          # e.g. ["00:00","07:00"]
+
   octopus:
-    api_key: ""
+    api_key: ""                  # optional (for Agile/Intelligent later)
     account_id: ""
+
   intelligent:
     allow_post_schedule: true
+
   mqtt:
     enabled: true
     host: "core-mosquitto"
@@ -33,20 +47,31 @@ options:
     username: ""
     password: ""
     topic_prefix: "smartenergy"
+
 schema:
   glowmarkt:
     email: str
     password: str
+
   tariff:
-    mode: list(e7|go|flex|uw_ev|ovo_powermove|agile|tracker|intelligent)
+    mode: list(e7|go|flex|uw_ev|ovo_powermove|intelligent)
     e7_offpeak_start_gmt: str
     e7_offpeak_end_gmt: str
     timezone: str
+    go_windows_gmt:
+      - str?
+    uw_ev_windows_gmt:
+      - str?
+    ovo_windows_gmt:
+      - str?
+
   octopus:
     api_key: str?
     account_id: str?
+
   intelligent:
     allow_post_schedule: bool
+
   mqtt:
     enabled: bool
     host: str
