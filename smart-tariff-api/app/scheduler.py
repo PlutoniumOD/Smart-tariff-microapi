@@ -1,32 +1,29 @@
-import datetime
-from glowmarkt import BrightClient
+# smart-tariff-api/app/scheduler.py
 
-class GlowClient:
-    def __init__(self, email: str, password: str):
-        self.cli = BrightClient(email, password)
+from apscheduler.schedulers.background import BackgroundScheduler
 
-    def get_electricity_resource(self):
-        ents = self.cli.get_virtual_entities()
-        for ent in ents:
-            for res in ent.get_resources():
-                if "Electricity" in res.name:
-                    return res
-        return None
+_scheduler: BackgroundScheduler | None = None
 
-    def get_gas_resource(self):
-        ents = self.cli.get_virtual_entities()
-        for ent in ents:
-            for res in ent.get_resources():
-                if "Gas" in res.name:
-                    return res
-        return None
+def start_scheduler(job_fn) -> BackgroundScheduler:
+    """
+    Create (or recreate) a BackgroundScheduler and schedule job_fn
+    at :00 and :30 each hour, with a small jitter to avoid thundering herds.
+    Returns the active scheduler instance.
+    """
+    global _scheduler
 
-    def get_tariff(self, resource):
-        return resource.get_tariff()
+    # If we already had a scheduler, shut it down cleanly
+    if _scheduler is not None:
+        try:
+            _scheduler.shutdown(wait=False)
+        except Exception:
+            pass
+        _scheduler = None
 
-    def get_recent_readings(self, resource, minutes=60, period="PT30M"):
-        now = datetime.datetime.now()
-        t_from = now - datetime.timedelta(minutes=minutes)
-        t_from = resource.round(t_from, period)
-        t_to = resource.round(now, period)
-        return resource.get_readings(t_from, t_to, period)
+    sch = BackgroundScheduler()
+    # Align with Bright/DCC half-hour slots
+    sch.add_job(job_fn, "cron", minute="0,30", jitter=15)
+    sch.start()
+
+    _scheduler = sch
+    return _scheduler
