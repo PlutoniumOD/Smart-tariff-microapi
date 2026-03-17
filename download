@@ -1,32 +1,12 @@
-from datetime import datetime
-from dateutil import tz
-
-def minutes(hhmm: str) -> int:
-    h, m = hhmm.split(":")
-    return int(h)*60 + int(m)
-
-def is_dst(dt: datetime, zone_name: str) -> bool:
-    z = tz.gettz(zone_name)
-    return bool((dt.replace(tzinfo=z)).dst())
-
-def in_window(now: datetime, start_min_gmt: int, end_min_gmt: int, zone_name: str) -> bool:
-    shift = 60 if is_dst(now, zone_name) else 0
-    start = (start_min_gmt + shift) % (24*60)
-    end   = (end_min_gmt   + shift) % (24*60)
-    cur   = now.hour*60 + now.minute
-    if start <= end:
-        return start <= cur < end
-    return cur >= start or cur < end
-
-class E7Engine:
-    def __init__(self, offpeak_start_gmt: str, offpeak_end_gmt: str, zone_name: str):
-        self.start_gmt = minutes(offpeak_start_gmt)
-        self.end_gmt = minutes(offpeak_end_gmt)
-        self.zone = zone_name
-
-    def current_rate(self, ctx, api_rate):
-        if api_rate and api_rate > 0:
-            return api_rate
-        if in_window(ctx.now, self.start_gmt, self.end_gmt, self.zone):
-            return ctx.last_offpeak_rate or ctx.last_peak_rate
-        return ctx.last_peak_rate or ctx.last_offpeak_rate
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+venv/
+.idea/
+.vscode/
+build/
+dist/
