@@ -1,3 +1,6 @@
+from fastapi import FastAPI
+app = FastAPI(title="Smart Tariff Micro‑API")
+
 import json
 import paho.mqtt.client as mqtt
 
