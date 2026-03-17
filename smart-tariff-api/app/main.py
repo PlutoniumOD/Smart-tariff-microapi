@@ -17,7 +17,8 @@ from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 
 app = FastAPI(title="Smart Tariff Micro‑API")
-
+import logging
+logger = logging.getLogger("smart-tariff")
 # Globals
 opts = None
 store = None
@@ -89,6 +90,23 @@ def make_engine(tariff_mode: str):
     # default
     return E7Engine(t["e7_offpeak_start_gmt"], t["e7_offpeak_end_gmt"], t["timezone"])
 
+# ---------- Ensure Store Helper ----------
+def ensure_store():
+    """Guarantee that `store` is a dict, creating defaults if missing/corrupt."""
+    global store
+    if store is None:
+        try:
+            store = store_load()
+        except Exception as e:
+            # Create a safe default store and persist it
+            logger.warning("Store load failed; creating default store: %s", e)
+            store = {
+                "last_update": None,
+                "elec": {"last_offpeak_rate": 0.0, "last_peak_rate": 0.0, "standing_charge": 0.0},
+                "gas":  {"last_rate": 0.0, "standing_charge": 0.0},
+                "intelligent": {"windows": []},
+            }
+            store_save(store)
 # ---------- Polling job ----------
 def poll_bright():
     global store
