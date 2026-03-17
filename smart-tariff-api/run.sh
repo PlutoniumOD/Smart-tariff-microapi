@@ -10,6 +10,15 @@ fi
 # Make options path visible to the app
 export ADDON_OPTIONS_PATH="/data/options.json"
 
+# --- add these lines ---
+# Set TZ from options.json to avoid tzlocal's UTC fallback warning
+export TZ="$(python3 - <<'PY'
+import json
+print(json.load(open("/data/options.json"))["tariff"]["timezone"])
+PY
+)"
+# -----------------------
+
 # Ensure we're in /app so Python can import the "app" package
 cd /app
 export PYTHONPATH=/app
