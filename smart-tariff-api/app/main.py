@@ -68,6 +68,17 @@ def mqtt_pub(topic: str, payload: dict):
     if mqtt:
         mqtt.pub(topic, payload)
 
+def _pence_to_gbp(v) -> float:
+    """
+    Accepts a pyglowmarkt unit object (e.g. Pence) or a raw float/int.
+    Returns GBP as a float (pence/100).
+    """
+    try:
+        raw = getattr(v, "value", v)
+        return float(raw) / 100.0
+    except Exception:
+        return 0.0
+
 # ---------- Engine selector ----------
 def make_engine(tariff_mode: str):
     t = opts["tariff"]
@@ -116,21 +127,19 @@ def poll_bright():
         if er:
             try:
                 t = glow.get_tariff(er)
-                rate = float(t.current_rates.rate)
-                sc = float(t.current_rates.standing_charge)
-
-                # choose bucket by current engine classification
+                rate = _pence_to_gbp(t.current_rates.rate)
+                sc   = _pence_to_gbp(t.current_rates.standing_charge)
+                # Decide off-peak/peak by window
                 in_off = False
                 try:
                     in_off = base_engine.is_offpeak(now_local())
                 except Exception:
                     in_off = False
-                    
-                # Seed both buckets on first success if both are zero
+                # Seed both buckets on very first success so current-rate isn't zero
                 if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
                     store["elec"]["last_offpeak_rate"] = rate
-                    store["elec"]["last_peak_rate"] = rate
-
+                    store["elec"]["last_peak_rate"]    = rate
+                # Write latest into the correct bucket
                 if in_off:
                     store["elec"]["last_offpeak_rate"] = rate
                 else:
@@ -206,27 +215,25 @@ def health():
         "mode": opts["tariff"]["mode"] if opts else None
     }
 
-
 @app.get("/electricity/current-rate")
 def electricity_current_rate():
     ctx = build_ctx(include_intel=True)
 
-    # If we have nothing stored yet, try to fetch current tariff as an API override
     api_rate = None
-    if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+    empty_buckets = (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and \
+                    (store["elec"]["last_peak_rate"] or 0.0) == 0.0
+    if empty_buckets:
         try:
             er = glow.get_electricity_resource()
             if er:
-                t = glow.get_tariff(er)
-                api_rate = float(t.current_rates.rate)
-                # Also set standing charge if we don't have it
+                t = er.get_tariff()
+                api_rate = _pence_to_gbp(t.current_rates.rate)
                 if (store["elec"]["standing_charge"] or 0.0) == 0.0:
-                    store["elec"]["standing_charge"] = float(t.current_rates.standing_charge)
+                    store["elec"]["standing_charge"] = _pence_to_gbp(t.current_rates.standing_charge)
                     store_save(store)
         except Exception:
             api_rate = None
 
-    # Compose base + intelligent overlay:
     base_rate = base_engine.current_rate(ctx, api_rate)
     rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
 
@@ -238,7 +245,6 @@ def electricity_current_rate():
     }
     mqtt_pub("electricity/current_rate", payload)
     return payload
-
 
 @app.get("/gas/current-rate")
 def gas_current_rate():
@@ -391,15 +397,14 @@ def debug_entities():
 
 @app.get("/debug/tariff/electricity")
 def debug_tariff_electricity():
-    """Fetch tariff right now from Bright for the electricity resource."""
     try:
         er = glow.get_electricity_resource()
         if not er:
             return {"error": "No electricity resource found"}
-        t = glow.get_tariff(er)
+        t = er.get_tariff()
         return {
-            "rate": float(t.current_rates.rate),
-            "standing_charge": float(t.current_rates.standing_charge),
+            "rate_gbp_per_kwh": _pence_to_gbp(t.current_rates.rate),
+            "standing_charge_gbp_per_day": _pence_to_gbp(t.current_rates.standing_charge),
         }
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
