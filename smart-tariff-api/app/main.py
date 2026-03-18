@@ -15,6 +15,7 @@ from .tariff_engine.flat import FlatEngine
 from .tariff_engine.intelligent import IntelligentEngine
 from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
+from datetime import datetime, timedelta
 
 app = FastAPI(title="Smart Tariff Micro‑API")
 import logging
@@ -67,6 +68,55 @@ def build_ctx(include_intel: bool = True):
 def mqtt_pub(topic: str, payload: dict):
     if mqtt:
         mqtt.pub(topic, payload)
+
+def _last_valid_slot_pair(cost_res, cons_res, lookback_slots: int = 4):
+    """
+    Return (cost_gbp, kwh, slot_end_iso) from the latest half-hour slot
+    with non-zero consumption. Scans back up to lookback_slots.
+    """
+    now = datetime.utcnow()
+    period = "PT30M"
+    for back in range(0, lookback_slots):
+        end = now - timedelta(minutes=30*back)
+        start = end - timedelta(minutes=30)
+        start = cost_res.round(start, period)
+        end   = cost_res.round(end, period)
+
+        cost_rdgs = cost_res.get_readings(start, end, period)
+        cons_rdgs = cons_res.get_readings(start, end, period)
+        if not cost_rdgs or not cons_rdgs:
+            continue
+
+        (_, cost_val) = cost_rdgs[-1]
+        (_, cons_val) = cons_rdgs[-1]
+        cost_p  = getattr(cost_val, "value", cost_val)  # pence
+        kwh     = getattr(cons_val, "value", cons_val)  # kWh
+
+        try:
+            kwh = float(kwh)
+            cost_gbp = float(cost_p) / 100.0
+        except Exception:
+            continue
+
+        if kwh and kwh > 0:
+            # Use 'end' as the slot label for clarity
+            return (cost_gbp, kwh, end.isoformat())
+
+    return (None, None, None)
+
+def compute_current_unit_rate():
+    """Compute implicit unit rate from latest valid cost/consumption slot."""
+    try:
+        cost_res = glow.get_electricity_cost_resource()
+        cons_res = glow.get_electricity_consumption_resource()
+        if not cost_res or not cons_res:
+            return None, None, None
+        cost_gbp, kwh, slot_end = _last_valid_slot_pair(cost_res, cons_res)
+        if cost_gbp is None or kwh is None or kwh <= 0:
+            return None, None, None
+        return (cost_gbp / kwh, cost_gbp, kwh)  # (rate, cost, kwh)
+    except Exception:
+        return None, None, None
 
 def _pence_to_gbp(v) -> float:
     """
@@ -126,26 +176,23 @@ def poll_bright():
         er = glow.get_electricity_resource()
         if er:
             try:
-                t = glow.get_tariff(er)
-                rate = _pence_to_gbp(t.current_rates.rate)
-                sc   = _pence_to_gbp(t.current_rates.standing_charge)
-                # Decide off-peak/peak by window
-                in_off = False
-                try:
-                    in_off = base_engine.is_offpeak(now_local())
-                except Exception:
-                    in_off = False
-                # Seed both buckets on very first success so current-rate isn't zero
-                if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
-                    store["elec"]["last_offpeak_rate"] = rate
-                    store["elec"]["last_peak_rate"]    = rate
-                # Write latest into the correct bucket
-                if in_off:
-                    store["elec"]["last_offpeak_rate"] = rate
-                else:
-                    store["elec"]["last_peak_rate"] = rate
-                store["elec"]["standing_charge"] = sc
-            except Exception:
+                
+                rate_now, _, _ = compute_current_unit_rate()
+                if rate_now is not None:
+                    # Seed both on first success
+                    if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+                        store["elec"]["last_offpeak_rate"] = rate_now
+                        store["elec"]["last_peak_rate"]    = rate_now
+                
+                    try:
+                        if base_engine.is_offpeak(now_local()):
+                            store["elec"]["last_offpeak_rate"] = rate_now
+                        else:
+                            store["elec"]["last_peak_rate"] = rate_now
+                    except Exception:
+                        # If schedule function throws for any reason, just write last_peak
+                        store["elec"]["last_peak_rate"] = rate_now
+
                 pass
 
         gr = glow.get_gas_resource()
@@ -215,24 +262,30 @@ def health():
         "mode": opts["tariff"]["mode"] if opts else None
     }
 
+
 @app.get("/electricity/current-rate")
 def electricity_current_rate():
     ctx = build_ctx(include_intel=True)
 
-    api_rate = None
-    empty_buckets = (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and \
-                    (store["elec"]["last_peak_rate"] or 0.0) == 0.0
-    if empty_buckets:
+    # Derive the live unit rate from cost/consumption
+    rate_now, _, _ = compute_current_unit_rate()
+
+    # If we got a valid rate, use it as api override and also keep store up to date
+    api_rate = rate_now if (rate_now is not None) else None
+    if rate_now is not None:
+        # Seed buckets if first run
+        if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+            store["elec"]["last_offpeak_rate"] = rate_now
+            store["elec"]["last_peak_rate"]    = rate_now
+        # Update the current bucket based on schedule
         try:
-            er = glow.get_electricity_resource()
-            if er:
-                t = er.get_tariff()
-                api_rate = _pence_to_gbp(t.current_rates.rate)
-                if (store["elec"]["standing_charge"] or 0.0) == 0.0:
-                    store["elec"]["standing_charge"] = _pence_to_gbp(t.current_rates.standing_charge)
-                    store_save(store)
+            if base_engine.is_offpeak(now_local()):
+                store["elec"]["last_offpeak_rate"] = rate_now
+            else:
+                store["elec"]["last_peak_rate"] = rate_now
+            store_save(store)
         except Exception:
-            api_rate = None
+            pass
 
     base_rate = base_engine.current_rate(ctx, api_rate)
     rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
@@ -245,6 +298,7 @@ def electricity_current_rate():
     }
     mqtt_pub("electricity/current_rate", payload)
     return payload
+
 
 @app.get("/gas/current-rate")
 def gas_current_rate():
@@ -408,3 +462,8 @@ def debug_tariff_electricity():
         }
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
+
+app.get("/debug/derived-unit-rate")
+def debug_derived_unit_rate():
+    rate_now, cost_gbp, kwh = compute_current_unit_rate()
+    return {"rate_gbp_per_kwh": rate_now, "slot_cost_gbp": cost_gbp, "slot_kwh": kwh}
