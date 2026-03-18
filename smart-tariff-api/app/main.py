@@ -168,41 +168,48 @@ def ensure_store():
                 "intelligent": {"windows": []},
             }
             store_save(store)
+
 # ---------- Polling job ----------
 def poll_bright():
     global store
     ensure_store()
     try:
+        # ELECTRICITY: derive the current unit rate from cost/consumption
         er = glow.get_electricity_resource()
         if er:
             try:
-                
                 rate_now, _, _ = compute_current_unit_rate()
                 if rate_now is not None:
-                    # Seed both on first success
-                    if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+                    # Seed both on first success so current-rate isn't zero
+                    if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and \
+                       (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
                         store["elec"]["last_offpeak_rate"] = rate_now
-                        store["elec"]["last_peak_rate"]    = rate_now
-                
+                        store["elec"]["last_peak_rate"] = rate_now
+
                     try:
                         if base_engine.is_offpeak(now_local()):
                             store["elec"]["last_offpeak_rate"] = rate_now
                         else:
                             store["elec"]["last_peak_rate"] = rate_now
                     except Exception:
-                        # If schedule function throws for any reason, just write last_peak
+                        # If schedule check fails, at least update peak
                         store["elec"]["last_peak_rate"] = rate_now
-
+            except Exception:
+                # swallow transient API hiccups
                 pass
 
+        # GAS: leave as-is for now (you can convert pence->GBP when HAN is back)
         gr = glow.get_gas_resource()
         if gr:
             try:
                 tg = glow.get_tariff(gr)
-                store["gas"]["last_rate"] = float(tg.current_rates.rate)
-                store["gas"]["standing_charge"] = float(tg.current_rates.standing_charge)
+                store["gas"]["last_rate"] = float(getattr(tg.current_rates.rate, "value",
+                                                          tg.current_rates.rate)) / 100.0
+                store["gas"]["standing_charge"] = float(getattr(tg.current_rates.standing_charge, "value",
+                                                                tg.current_rates.standing_charge)) / 100.0
             except Exception:
                 pass
+
     finally:
         store["last_update"] = datetime.utcnow().isoformat()
         store_save(store)
@@ -463,7 +470,7 @@ def debug_tariff_electricity():
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
 
-app.get("/debug/derived-unit-rate")
+@app.get("/debug/derived-unit-rate")
 def debug_derived_unit_rate():
     rate_now, cost_gbp, kwh = compute_current_unit_rate()
     return {"rate_gbp_per_kwh": rate_now, "slot_cost_gbp": cost_gbp, "slot_kwh": kwh}
