@@ -474,3 +474,40 @@ def debug_tariff_electricity():
 def debug_derived_unit_rate():
     rate_now, cost_gbp, kwh = compute_current_unit_rate()
     return {"rate_gbp_per_kwh": rate_now, "slot_cost_gbp": cost_gbp, "slot_kwh": kwh}
+
+@app.get("/debug/slot-pairs")
+def debug_slot_pairs():
+    try:
+        cost_res = glow.get_electricity_cost_resource()
+        cons_res = glow.get_electricity_consumption_resource()
+        if not cost_res or not cons_res:
+            return {"error": "Missing cost or consumption resource"}
+
+        out = []
+        now = datetime.utcnow()
+        period = "PT30M"
+        for back in range(0, 6):
+            end = now - timedelta(minutes=30*back)
+            start = end - timedelta(minutes=30)
+            start = cost_res.round(start, period)
+            end   = cost_res.round(end, period)
+
+            try:
+                cost_rdgs = cost_res.get_readings(start, end, period)
+                cons_rdgs = cons_res.get_readings(start, end, period)
+            except Exception as e:
+                out.append({"slot": back, "error": str(e)})
+                continue
+
+            out.append({
+                "slot": back,
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "cost_rdgs": [str(x[1]) for x in cost_rdgs],
+                "cons_rdgs": [str(x[1]) for x in cons_rdgs],
+            })
+
+        return out
+    except Exception as e:
+        return {"error": str(e)}
+    
