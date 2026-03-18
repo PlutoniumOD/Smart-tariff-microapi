@@ -1,5 +1,13 @@
 # smart-tariff-api/app/glow.py
 
+def get_electricity_cost_resource(self):
+    # Prefer explicit "electricity cost"
+    return self._first_resource_matching("electricity cost")
+
+def get_electricity_consumption_resource(self):
+    # Explicit "electricity consumption"
+    return self._first_resource_matching("electricity consumption")
+
 import datetime
 from glowmarkt import BrightClient
 
