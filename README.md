@@ -89,17 +89,7 @@ All money values are **GBP**:
 - `rate` → **GBP/kWh**  
 - `standing_charge` → **GBP/day**
 
-## MQTT Topics 
-- `smartenergy/electricity/current_rate`
-- `smartenergy/electricity/offpeak_rate`
-- `smartenergy/electricity/peak_rate`
-- `smartenergy/electricity/standing_charge
-- `smartenergy/electricity/cost_today`
-- `smartenergy/electricity/consumption`
-- `smartenergy/gas/current_rate`
-- `smartenergy/gas/tariff`
-- `smartenergy/gas/cost_today`
-- `smartenergy/gas/consumption`
+
 <img width="555" height="779" alt="image" src="https://github.com/user-attachments/assets/7a0554a0-c11d-4208-89e8-85f1fa4d9ce1" />
 <img width="553" height="682" alt="image" src="https://github.com/user-attachments/assets/fd093705-b293-4294-912a-c4caf9783112" />
 
