@@ -1,10 +1,15 @@
-[https://img.shields.io/badge/Home%20Assistant-Addon-blue()]
+https://img.shields.io/badge/Home%20Assistant-Addon-blue()
+
 https://img.shields.io/badge/MQTT-Discovery-green]()
+
 https://img.shields.io/badge/Python-3.12-blue]()
+
 https://img.shields.io/badge/License-MIT-green]()
+
+
 # Smart Tariff Micro‑API (Home Assistant Add‑on)
 
-A local micro‑API that replaces flaky tariff/rate handling by exposing **clean REST (and optional MQTT)** endpoints for:
+A local micro‑API that replaces flaky tariff/rate handling by exposing **clean REST and  MQTT** endpoints for:
 
 - **Electricity & Gas**: current rate (GBP/kWh), standing charge (GBP/day), half‑hourly consumption, daily cost
 - **Tariffs**: Economy 7 (DST‑aware), EV windowed plans (Go/UW EV/OVO Power Move), future Agile/Tracker & Intelligent overlays
