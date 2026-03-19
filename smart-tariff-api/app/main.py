@@ -359,6 +359,18 @@ def poll_bright():
             "updated_utc": store["last_update"]
         })
 
+        # Push electricity cost_today
+        try:
+            electricity_cost_today()
+        except Exception as e:
+            logger.error("Error computing elec cost_today during poll: %s", e)
+        
+        # Push gas cost_today
+        try:
+            gas_cost_today()
+        except Exception as e:
+            logger.error("Error computing gas cost_today during poll: %s", e)
+
 # ---------- Startup ----------
 @app.on_event("startup")
 def on_startup():
@@ -499,7 +511,7 @@ def _is_offpeak_at(dt_local: datetime) -> bool:
     except Exception:
         return False
 
-@app.get("/electricity/cost/today")
+app.get("/electricity/cost/today")
 def electricity_cost_today():
     """Compute today's electricity cost using last-known peak/off-peak & windows (+ standing)."""
     try:
@@ -507,13 +519,14 @@ def electricity_cost_today():
         if not er:
             raise HTTPException(503, "Electricity resource not available")
 
-        # Pull last 24h; we'll filter to local 'today'
+        # Pull last 24h
         rdgs = glow.get_recent_readings(er, minutes=24*60, period="PT30M")
         today0 = _local_midnight(now_local())
         tomorrow0 = today0 + timedelta(days=1)
 
         kwh_off = 0.0
         kwh_peak = 0.0
+
         for ts, val in rdgs:
             kwh = float(getattr(val, "value", val))
             ts_local = ts.astimezone(zone)
@@ -529,7 +542,9 @@ def electricity_cost_today():
         sc = store["elec"]["standing_charge"] or 0.0
 
         cost = (kwh_off * off_rate) + (kwh_peak * peak_rate) + sc
-        return {
+
+
+        payload = {
             "kwh_offpeak": round(kwh_off, 6),
             "kwh_peak": round(kwh_peak, 6),
             "rate_offpeak": off_rate,
@@ -538,33 +553,41 @@ def electricity_cost_today():
             "cost_total": round(cost, 6),
             "updated_utc": store["last_update"]
         }
-    except HTTPException:
-        raise
-    except Exception:
-        # non-fatal
-        return {
-            "kwh_offpeak": 0.0, "kwh_peak": 0.0,
-            "rate_offpeak": store["elec"]["last_offpeak_rate"],
-            "rate_peak": store["elec"]["last_peak_rate"],
-            "standing_charge": store["elec"]["standing_charge"],
-            "cost_total": None, "updated_utc": store["last_update"]
-        }
-        
+
+        # Publish to MQTT
         mqtt_pub("electricity/cost_today", {
-            "kwh_offpeak": kwh_off,
-            "kwh_peak": kwh_peak,
-            "cost_total": cost,
+            "kwh_offpeak": round(kwh_off, 1),
+            "kwh_peak": round(kwh_peak, 1),
+            "cost_total": round(cost, 2),
             "updated_utc": store["last_update"]
         })
 
+        return payload
 
-@app.get("/gas/cost/today")
+    except Exception:
+        fallback = {
+            "kwh_offpeak": 0.0,
+            "kwh_peak": 0.0,
+            "rate_offpeak": store["elec"]["last_offpeak_rate"],
+            "rate_peak": store["elec"]["last_peak_rate"],
+            "standing_charge": store["elec"]["standing_charge"],
+            "cost_total": None,
+            "updated_utc": store["last_update"]
+        }
+
+        # Publish fallback too
+        mqtt_pub("electricity/cost_today", fallback)
+        return fallback
+
+
+app.get("/gas/cost/today")
 def gas_cost_today():
     """Compute today's gas cost with single rate + standing charge."""
     try:
         gr = glow.get_gas_resource()
         if not gr:
             raise HTTPException(503, "Gas resource not available")
+
         rdgs = glow.get_recent_readings(gr, minutes=24*60, period="PT30M")
         today0 = _local_midnight(now_local())
         tomorrow0 = today0 + timedelta(days=1)
@@ -577,30 +600,37 @@ def gas_cost_today():
 
         rate = store["gas"]["last_rate"] or 0.0
         sc = store["gas"]["standing_charge"] or 0.0
+
         cost = (kwh * rate) + sc
-        return {
+
+
+        payload = {
             "kwh": round(kwh, 6),
             "rate": rate,
             "standing_charge": sc,
             "cost_total": round(cost, 6),
             "updated_utc": store["last_update"]
         }
-    except HTTPException:
-        raise
+
+        mqtt_pub("gas/cost_today", {
+            "kwh": round(kwh, 1),
+            "cost_total": round(cost, 2),
+            "updated_utc": store["last_update"]
+        })
+
+        return payload
+
     except Exception:
-        return {
+        fallback = {
             "kwh": 0.0,
             "rate": store["gas"]["last_rate"],
             "standing_charge": store["gas"]["standing_charge"],
             "cost_total": None,
             "updated_utc": store["last_update"]
         }
-        
-        mqtt_pub("gas/cost_today", {
-            "kwh": kwh,
-            "cost_total": cost,
-            "updated_utc": store["last_update"]
-        })
+
+        mqtt_pub("gas/cost_today", fallback)
+        return fallback
 
 @app.get("/debug/entities")
 def debug_entities():
