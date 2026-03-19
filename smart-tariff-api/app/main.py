@@ -46,7 +46,7 @@ def require_ok():
 # ---------- Helpers ----------
 
 def mqtt_discovery():
-logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
+    logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
     if not mqtt:
         logger.error("MQTT DISCOVERY: ABORT — mqtt publisher not initialised")
         return
