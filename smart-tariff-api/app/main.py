@@ -16,7 +16,7 @@ from .tariff_engine.intelligent import IntelligentEngine
 from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
-
+import json
 app = FastAPI(title="Smart Tariff Micro‑API")
 import logging
 logger = logging.getLogger("smart-tariff")
