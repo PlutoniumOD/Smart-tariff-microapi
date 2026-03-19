@@ -237,19 +237,43 @@ def _last_valid_slot_pair(cost_res, cons_res, lookback_slots: int = 4):
 
     return (None, None, None)
 
+
 def compute_current_unit_rate():
-    """Compute implicit unit rate from latest valid cost/consumption slot."""
+    """
+    Compute implicit unit rate from latest valid cost/consumption slot.
+
+    If no valid slot is available (0 kWh or no data), fallback to tariff schedule:
+        - Peak window  -> use last_peak_rate
+        - Offpeak window -> use last_offpeak_rate
+    """
+
     try:
         cost_res = glow.get_electricity_cost_resource()
         cons_res = glow.get_electricity_consumption_resource()
         if not cost_res or not cons_res:
             return None, None, None
+
         cost_gbp, kwh, slot_end = _last_valid_slot_pair(cost_res, cons_res)
-        if cost_gbp is None or kwh is None or kwh <= 0:
-            return None, None, None
-        return (cost_gbp / kwh, cost_gbp, kwh)  # (rate, cost, kwh)
+
+        # ---- VALID SLOT FOUND ----
+        if cost_gbp is not None and kwh is not None and kwh > 0:
+            derived_rate = cost_gbp / kwh
+            return derived_rate, cost_gbp, kwh
+
+        # ---- NO VALID SLOT (fallback logic) ----
+        now = now_local()
+        try:
+            if base_engine.is_offpeak(now):
+                return store["elec"]["last_offpeak_rate"], None, None
+            else:
+                return store["elec"]["last_peak_rate"], None, None
+        except Exception:
+            # Last-resort fallback
+            return store["elec"]["last_peak_rate"], None, None
+
     except Exception:
         return None, None, None
+
 
 def _pence_to_gbp(v) -> float:
     """
