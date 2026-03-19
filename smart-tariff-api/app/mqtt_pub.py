@@ -9,6 +9,11 @@ class MQTTPublisher:
             self.client.username_pw_set(username, password or None)
         self.client.connect(host, port, keepalive=60)
 
+
     def pub(self, topic, payload):
-        full = f"{self.prefix}/{topic.lstrip('/')}"
-        self.client.publish(full, json.dumps(payload), qos=0, retain=True)
+        # ALWAYS publish under smartenergy/... regardless of config
+        full = f"smartenergy/{topic.lstrip('/')}"
+        try:
+            self.client.publish(full, json.dumps(payload), qos=1, retain=True)
+        except Exception as e:
+            print(f"MQTT publish failed: {e}")
