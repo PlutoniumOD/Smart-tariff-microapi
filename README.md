@@ -1,50 +1,80 @@
 
-![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Addon-blue)
-![MQTT Discovery](https://img.shields.io/badge/MQTT-Discovery-green)
-![Python 3.12](https://img.shields.io/badge/Python-3.12-blue)
-![License MIT](https://img.shields.io/badge/License-MIT-green)
-
-
-
 # Smart Tariff Micro‑API (Home Assistant Add‑on)
 
-A local micro‑API that replaces flaky tariff/rate handling by exposing **clean REST and  MQTT** endpoints for:
+<p align="center">
+  https://img.shields.io/badge/Home%20Assistant-Addon-blue
+  https://img.shields.io/badge/MQTT-Discovery-brightgreen
+  https://img.shields.io/badge/Python-3.12-blue
+  https://img.shields.io/badge/Glowmarkt-DCC-orange
+  https://img.shields.io/badge/License-MIT-green
+</p>
 
-- **Electricity & Gas**: current rate (GBP/kWh), standing charge (GBP/day), half‑hourly consumption, daily cost
-- **Tariffs**: Economy 7 (DST‑aware), EV windowed plans (Go/UW EV/OVO Power Move), future Agile/Tracker & Intelligent overlays
-- **Resilience**: bridges DCC/Bright delays using window logic + last‑known rates, then overwrites with live API values as they arrive
+A lightweight tariff and energy‑cost engine for Home Assistant.  
+Designed to be resilient against Bright/DCC delays, provide accurate E7/EV rate switching, and publish clean MQTT sensors for the Energy Dashboard.
 
-> Notes:
-> - The Bright/Glowmarkt API returns cost units in **pence**; this service converts to **GBP** for HA sensors and the Energy Dashboard.
-> - DCC/Bright data arrives on **half‑hour intervals** and can be delayed; this service aligns polling at `:00/:30` and falls back gracefully.
+This add‑on polls Glowmarkt (Bright App) DCC virtual meter data every 30 minutes, derives the **current unit rate**, splits usage into peak/off‑peak blocks, computes **daily usage & cost**, and publishes everything via **MQTT Discovery**.
 
-##Diagram
-Bright/DCC → Smart Tariff Micro‑API → RESTful or MQTT Discovery → HA Sensors → Energy Dashboard
+---
 
-## Features
+# 🔌 Features
 
-- **Home Assistant Add‑on** (Supervisor)
-- **FastAPI** on port **8787**
-- **pyglowmarkt** client for Bright/Glowmarkt
-- **APScheduler** polling at `:00` & `:30`
-- **DST-aware** windows for E7 & EV
-- **Optional MQTT** publishing
+- ⚡ **Electricity & Gas tariff engine**
+- 🕑 **E7, Go, UW EV, OVO**, windowed tariffs  
+- 🕧 **DST‑aware off‑peak switching**
+- 🧮 **Live tariff derivation** from cost/consumption  
+- 💬 **MQTT Discovery** (no YAML needed)
+- 📊 **Energy Dashboard compatible**
+- 🔍 Debug endpoints for investigation
+- 💾 Persistent store of last-known rates
 
-# Installation Instructions
-## Install (Custom Add‑on Repository)
+---
 
-1. Add this repository in **Home Assistant → Settings → Add‑ons → Add‑on Store → ⋮ → Repositories**  
-   `https://github.com/PlutoniumOD/Smart-tariff-microapi`
-2. Install **Smart Tariff Micro‑API**, open **Configuration**, set:
-   - `glowmarkt.email`, `glowmarkt.password`
-   - `tariff.mode: e7` (default; windows set automatically by DST)
-   - `tariff.timezone: "Europe/London"`
-   - Enable MQTT if you want topics published
-   - `mqtt username`, `mqtt password`
-   - `Topic:` `smartenergy`
-3. Start the add‑on.
+# 🗺️ Architecture Overview
 
-## API Endpoints (REST)
+
+All computations occur locally, HA simply consumes the MQTT sensors.
+
+---
+
+# 📦 MQTT Sensors Created
+
+### **Electricity (Device: Smart Tariff Micro‑API — Electricity)**  
+- `electricity_current_rate`  
+- `electricity_peak_rate`  
+- `electricity_offpeak_rate`  
+- `electricity_standing_charge`  
+- `electricity_usage_today`  
+- `electricity_cost_today`  
+
+### **Gas (Device: Smart Tariff Micro‑API — Gas)**  
+- `gas_current_rate`  
+- `gas_standing_charge`  
+- `gas_usage_today`  
+- `gas_cost_today`  
+
+All sensors include:
+
+- Correct units (GBP, kWh)  
+- Proper rounding (GBP: 2dp, kWh: 1dp)  
+- Auto attributes  
+- Retained state  
+
+---
+
+# ⚙️ Installation
+
+1. Go to **Settings → Add‑ons → Add‑on Store**
+2. Click **⋮ → Repositories**
+3. Add: https://github.com/PlutoniumOD/Smart-tariff-microapi
+4. Install the **Smart Tariff Micro‑API** add-on  
+5. Open the add‑on → **Configuration**  
+6. Enter Bright/Glowmarkt credentials  
+7. Enable MQTT  
+8. Start the add‑on  
+9. Sensors will appear automatically in HA
+
+---
+## API Endpoints (REST provided as legacy)
 
 - `GET /health` — service status
 - `POST /refresh-data` — force a Bright/DCC poll now
@@ -59,8 +89,7 @@ All money values are **GBP**:
 - `rate` → **GBP/kWh**  
 - `standing_charge` → **GBP/day**
 
-## MQTT Topics (if enabled)
-
+## MQTT Topics 
 - `smartenergy/electricity/current_rate`
 - `smartenergy/electricity/offpeak_rate`
 - `smartenergy/electricity/peak_rate`
@@ -75,20 +104,29 @@ All money values are **GBP**:
 <img width="553" height="682" alt="image" src="https://github.com/user-attachments/assets/fd093705-b293-4294-912a-c4caf9783112" />
 
 
-## Configuration Options
+# 🧰 Configuration Options
+
+Inside the add-on config panel:
 
 ```yaml
 glowmarkt:
   email: "name@example.com"
-  password: "••••••••"
+  password: "..."
+
+mqtt:
+  enabled: true
+  host: "core-mosquitto"
+  port: 1883
+  username: "mqtt_user"
+  password: "mqtt_password"
+  topic_prefix: "smartenergy"
 
 tariff:
-  mode: "e7"                   # e7 | go | uw_ev | ovo_powermove | flex | intelligent
-  e7_offpeak_start_gmt: "00:30"  # E7 base (GMT); auto-shifts in BST
+  mode: "e7"               # e7 | go | uw_ev | ovo_powermove | flex | intelligent
+  e7_offpeak_start_gmt: "00:30"
   e7_offpeak_end_gmt: "07:30"
   timezone: "Europe/London"
-  # Windowed EV modes (fill in when you switch):
-  go_windows_gmt: []           # e.g., ["00:30","04:30"]
+  go_windows_gmt: []
   uw_ev_windows_gmt: []
   ovo_windows_gmt: []
 
