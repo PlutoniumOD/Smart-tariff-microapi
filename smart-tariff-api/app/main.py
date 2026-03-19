@@ -44,6 +44,81 @@ def require_ok():
     return True
 
 # ---------- Helpers ----------
+
+def mqtt_discovery():
+    if not mqtt:
+        return
+
+    prefix = "homeassistant/sensor/smart_tariff"
+
+    device_info = {
+        "identifiers": ["smart_tariff_microapi"],
+        "name": "Smart Tariff Micro‑API",
+        "manufacturer": "Captain Gav Industries",
+        "model": "DCC‑Bright Tariff Deriver"
+    }
+
+    # 1. Current Rate
+    mqtt.client.publish(
+        f"{prefix}_current_rate/config",
+        json.dumps({
+            "name": "Smart Tariff Current Rate",
+            "state_topic": "smartenergy/electricity/current_rate",
+            "value_template": "{{ value_json.rate }}",
+            "unit_of_measurement": "GBP/kWh",
+            "unique_id": "smart_tariff_current_rate",
+            "device": device_info
+        }),
+        qos=1,
+        retain=True
+    )
+
+    # 2. Standing Charge
+    mqtt.client.publish(
+        f"{prefix}_standing_charge/config",
+        json.dumps({
+            "name": "Smart Tariff Standing Charge",
+            "state_topic": "smartenergy/electricity/current_rate",
+            "value_template": "{{ value_json.standing_charge }}",
+            "unit_of_measurement": "GBP/day",
+            "unique_id": "smart_tariff_standing_charge",
+            "device": device_info
+        }),
+        qos=1,
+        retain=True
+    )
+
+    # 3. Usage Today
+    mqtt.client.publish(
+        f"{prefix}_usage_today/config",
+        json.dumps({
+            "name": "Smart Tariff Usage Today",
+            "state_topic": "smartenergy/electricity/cost_today",
+            "value_template": >
+                "{{ value_json.kwh_offpeak | float + value_json.kwh_peak | float }}",
+            "unit_of_measurement": "kWh",
+            "unique_id": "smart_tariff_usage_today",
+            "device": device_info
+        }),
+        qos=1,
+        retain=True
+    )
+
+    # 4. Cost Today
+    mqtt.client.publish(
+        f"{prefix}_cost_today/config",
+        json.dumps({
+            "name": "Smart Tariff Cost Today",
+            "state_topic": "smartenergy/electricity/cost_today",
+            "value_template": "{{ value_json.cost_total }}",
+            "unit_of_measurement": "GBP",
+            "unique_id": "smart_tariff_cost_today",
+            "device": device_info
+        }),
+        qos=1,
+        retain=True
+    )
+
 def now_local() -> datetime:
     return datetime.now(tz=zone)
 
