@@ -62,7 +62,7 @@ def mqtt_discovery():
 
 
 
-configs = [
+    configs = [
     # ELECTRICITY -------------------------------------------------------------
 
     {
