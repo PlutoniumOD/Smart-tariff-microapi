@@ -60,86 +60,55 @@ def mqtt_discovery():
         "model": "DCC‑Bright Tariff Deriver"
     }
 
-    # 1. Current Rate
-    mqtt.client.publish(
-        f"{prefix}_current_rate/config",
-        json.dumps({
+    configs = [
+        {
+            "object_id": "smart_tariff_current_rate",
             "name": "Smart Tariff Current Rate",
             "state_topic": "smartenergy/electricity/current_rate",
             "value_template": "{{ value_json.rate }}",
-            "unit_of_measurement": "GBP/kWh",
-            "unique_id": "smart_tariff_current_rate",
-            "device": device_info
-        }),
-        qos=1,
-        retain=True
-    )
-
-    # 2. Standing Charge
-    mqtt.client.publish(
-        f"{prefix}_standing_charge/config",
-        json.dumps({
+            "unit": "GBP/kWh",
+        },
+        {
+            "object_id": "smart_tariff_standing_charge",
             "name": "Smart Tariff Standing Charge",
             "state_topic": "smartenergy/electricity/current_rate",
             "value_template": "{{ value_json.standing_charge }}",
-            "unit_of_measurement": "GBP/day",
-            "unique_id": "smart_tariff_standing_charge",
-            "device": device_info
-        }),
-        qos=1,
-        retain=True
-    )
-
-
-    # 3. Usage Today (kWh = offpeak + peak)
-    mqtt.client.publish(
-        f"{prefix}_usage_today/config",
-        json.dumps({
+            "unit": "GBP/day",
+        },
+        {
+            "object_id": "smart_tariff_usage_today",
             "name": "Smart Tariff Usage Today",
             "state_topic": "smartenergy/electricity/cost_today",
             "value_template": "{{ (value_json.kwh_offpeak | float) + (value_json.kwh_peak | float) }}",
-            "unit_of_measurement": "kWh",
-            "unique_id": "smart_tariff_usage_today",
-            "device": device_info
-        }),
-        qos=1,
-        retain=True
-    )
-
-
-    # 4. Cost Today
-    mqtt.client.publish(
-        f"{prefix}_cost_today/config",
-        json.dumps({
+            "unit": "kWh",
+        },
+        {
+            "object_id": "smart_tariff_cost_today",
             "name": "Smart Tariff Cost Today",
             "state_topic": "smartenergy/electricity/cost_today",
             "value_template": "{{ value_json.cost_total | float }}",
-            "unit_of_measurement": "GBP",
-            "unique_id": "smart_tariff_cost_today",
-            "device": device_info
-        }),
-        qos=1,
-        retain=True
-    )
+            "unit": "GBP",
+        }
+    ]
 
-       for cfg in configs:
-            topic = f"homeassistant/sensor/{cfg['object_id']}/config"
-            payload = {
-                "name": cfg["name"],
-                "state_topic": cfg["state_topic"],
-                "value_template": cfg["value_template"],
-                "unit_of_measurement": cfg["unit"],
-                "unique_id": cfg["object_id"],
-                "device": device,
-                "json_attributes_topic": cfg["state_topic"]
-            }
-    
-            logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
-            try:
-                mqtt.client.publish(topic, json.dumps(payload), qos=1, retain=True)
-                logger.warning("MQTT DISCOVERY: OK %s", cfg["object_id"])
-            except Exception as e:
-                logger.error("MQTT DISCOVERY: FAILED %s — %s", cfg["object_id"], e)
+    for cfg in configs:
+        topic = f"homeassistant/sensor/{cfg['object_id']}/config"
+        payload = {
+            "name": cfg["name"],
+            "state_topic": cfg["state_topic"],
+            "value_template": cfg["value_template"],
+            "unit_of_measurement": cfg["unit"],
+            "unique_id": cfg["object_id"],
+            "device": device,
+            "json_attributes_topic": cfg["state_topic"]
+        }
+
+        logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
+        try:
+            mqtt.client.publish(topic, json.dumps(payload), qos=1, retain=True)
+            logger.warning("MQTT DISCOVERY: OK %s", cfg["object_id"])
+        except Exception as e:
+            logger.error("MQTT DISCOVERY: FAILED %s — %s", cfg["object_id"], e)
 
     logger.warning("MQTT DISCOVERY: completed")
 
