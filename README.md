@@ -1,3 +1,7 @@
+https://img.shields.io/badge/Home%20Assistant-Addon-blue]()
+https://img.shields.io/badge/MQTT-Discovery-green]()
+https://img.shields.io/badge/Python-3.12-blue]()
+https://img.shields.io/badge/License-MIT-green]()
 # Smart Tariff Micro‑API (Home Assistant Add‑on)
 
 A local micro‑API that replaces flaky tariff/rate handling by exposing **clean REST (and optional MQTT)** endpoints for:
@@ -10,6 +14,9 @@ A local micro‑API that replaces flaky tariff/rate handling by exposing **clean
 > - The Bright/Glowmarkt API returns cost units in **pence**; this service converts to **GBP** for HA sensors and the Energy Dashboard.
 > - DCC/Bright data arrives on **half‑hour intervals** and can be delayed; this service aligns polling at `:00/:30` and falls back gracefully.
 
+##Diagram
+Bright/DCC → Smart Tariff Micro‑API → RESTful or MQTT Discovery → HA Sensors → Energy Dashboard
+
 ## Features
 
 - **Home Assistant Add‑on** (Supervisor)
@@ -19,6 +26,7 @@ A local micro‑API that replaces flaky tariff/rate handling by exposing **clean
 - **DST-aware** windows for E7 & EV
 - **Optional MQTT** publishing
 
+#Installation Instructions
 ## Install (Custom Add‑on Repository)
 
 1. Add this repository in **Home Assistant → Settings → Add‑ons → Add‑on Store → ⋮ → Repositories**  
@@ -28,6 +36,8 @@ A local micro‑API that replaces flaky tariff/rate handling by exposing **clean
    - `tariff.mode: e7` (default; windows set automatically by DST)
    - `tariff.timezone: "Europe/London"`
    - Enable MQTT if you want topics published
+   - `mqtt username`,`mqtt password`
+   - `Topic:` ` smartenergy`
 3. Start the add‑on.
 
 ## API Endpoints (REST)
@@ -84,3 +94,8 @@ mqtt:
   username: ""
   password: ""
   topic_prefix: "smartenergy"
+```
+##Credits
+
+Inspiration: HandyHat, Jonandel
+DCC data via Glowmarkt (Bright app)
