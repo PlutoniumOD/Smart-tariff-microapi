@@ -362,6 +362,7 @@ def on_startup():
         logger.warning("MQTT INIT: disabled in configuration")
 
     # Publish MQTT Entites
+    logger.warning("MQTT INIT: running mqtt_discovery()…")
     mqtt_discovery()
 
     # 4) Start the scheduler, then do a safe first poll
