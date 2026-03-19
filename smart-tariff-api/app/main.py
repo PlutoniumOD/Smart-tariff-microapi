@@ -53,7 +53,7 @@ def mqtt_discovery():
 
     prefix = "homeassistant/sensor/smart_tariff"
 
-    device_info = {
+    device = {
         "identifiers": ["smart_tariff_microapi"],
         "name": "Smart Tariff Micro‑API",
         "manufacturer": "PlutoniumOD Industries",
