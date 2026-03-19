@@ -5,7 +5,7 @@
   <img src="https://img.shields.io/badge/Home%20Assistant-Addon-blue" height="28" />
   <img src="https://img.shields.io/badge/MQTT-Discovery-green" height="28" />
   <img src="https://img.shields.io/badge/Python-3.12-blue" height="28" />
-  <img src="[https://img.shields.io/badge/License-MIT-green]" height="28" />
+  <img src="https://img.shields.io/badge/Glowmarkt-DCC-orange" height="28" />
   <img src="https://img.shields.io/badge/License-MIT-green" height="28" />
 </p>
 
