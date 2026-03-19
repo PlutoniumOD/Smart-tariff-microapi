@@ -111,7 +111,7 @@ def mqtt_discovery():
         json.dumps({
             "name": "Smart Tariff Cost Today",
             "state_topic": "smartenergy/electricity/cost_today",
-            "value_template": "{{ value_json.cost_total }}",
+            "value_template": "{{ value_json.cost_total | float }}",
             "unit_of_measurement": "GBP",
             "unique_id": "smart_tariff_cost_today",
             "device": device_info
@@ -119,6 +119,7 @@ def mqtt_discovery():
         qos=1,
         retain=True
     )
+
 
 def now_local() -> datetime:
     return datetime.now(tz=zone)
