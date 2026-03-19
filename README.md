@@ -1,10 +1,9 @@
-https://img.shields.io/badge/Home%20Assistant-Addon-blue()
 
-https://img.shields.io/badge/MQTT-Discovery-green]()
+![Home Assistant Add-on](https://img.shields.io/badge/Home%20Assistant-Addon-blue)
+![MQTT Discovery](https://img.shields.io/badge/MQTT-Discovery-green)
+![Python 3.12](https://img.shields.io/badge/Python-3.12-blue)
+![License MIT](https://img.shields.io/badge/License-MIT-green)
 
-https://img.shields.io/badge/Python-3.12-blue]()
-
-https://img.shields.io/badge/License-MIT-green]()
 
 
 # Smart Tariff Micro‑API (Home Assistant Add‑on)
