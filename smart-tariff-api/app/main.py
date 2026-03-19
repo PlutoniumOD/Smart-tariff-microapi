@@ -48,6 +48,7 @@ def require_ok():
 def mqtt_discovery():
 logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
     if not mqtt:
+        logger.error("MQTT DISCOVERY: ABORT — mqtt publisher not initialised")
         return
 
     prefix = "homeassistant/sensor/smart_tariff"
@@ -55,7 +56,7 @@ logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
     device_info = {
         "identifiers": ["smart_tariff_microapi"],
         "name": "Smart Tariff Micro‑API",
-        "manufacturer": "Captain Gav Industries",
+        "manufacturer": "PlutoniumOD Industries",
         "model": "DCC‑Bright Tariff Deriver"
     }
 
@@ -120,6 +121,27 @@ logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
         qos=1,
         retain=True
     )
+
+   for cfg in configs:
+        topic = f"homeassistant/sensor/{cfg['object_id']}/config"
+        payload = {
+            "name": cfg["name"],
+            "state_topic": cfg["state_topic"],
+            "value_template": cfg["value_template"],
+            "unit_of_measurement": cfg["unit"],
+            "unique_id": cfg["object_id"],
+            "device": device,
+            "json_attributes_topic": cfg["state_topic"]
+        }
+
+        logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
+        try:
+            mqtt.client.publish(topic, json.dumps(payload), qos=1, retain=True)
+            logger.warning("MQTT DISCOVERY: OK %s", cfg["object_id"])
+        except Exception as e:
+            logger.error("MQTT DISCOVERY: FAILED %s — %s", cfg["object_id"], e)
+
+    logger.warning("MQTT DISCOVERY: completed")
 
 
 def now_local() -> datetime:
