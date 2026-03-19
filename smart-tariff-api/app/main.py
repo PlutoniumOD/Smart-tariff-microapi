@@ -327,6 +327,9 @@ def on_startup():
         except Exception:
             _mqtt = None
         globals()["mqtt"] = _mqtt
+    # Publish MQTT Entites
+    mqtt_discovery()
+
     # 4) Start the scheduler, then do a safe first poll
     start_scheduler(poll_bright)
     
@@ -478,6 +481,14 @@ def electricity_cost_today():
             "standing_charge": store["elec"]["standing_charge"],
             "cost_total": None, "updated_utc": store["last_update"]
         }
+        
+        mqtt_pub("electricity/cost_today", {
+            "kwh_offpeak": kwh_off,
+            "kwh_peak": kwh_peak,
+            "cost_total": cost,
+            "updated_utc": store["last_update"]
+        })
+
 
 @app.get("/gas/cost/today")
 def gas_cost_today():
