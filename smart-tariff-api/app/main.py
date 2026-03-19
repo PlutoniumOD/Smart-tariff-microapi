@@ -54,43 +54,104 @@ def mqtt_discovery():
     prefix = "homeassistant/sensor/smart_tariff"
 
     device = {
-        "identifiers": ["smart_tariff_microapi"],
-        "name": "Smart Tariff Micro‑API",
+        "identifiers": [cfg["device_name"]],
+        "name": cfg["device_name"],
         "manufacturer": "PlutoniumOD Industries",
-        "model": "DCC‑Bright Tariff Deriver"
+        "model": "DCC‑Bright Engine"
     }
 
 
-    configs = [
-        {
-            "object_id": "smart_tariff_current_rate",
-            "name": "Smart Tariff Current Rate",
-            "state_topic": "smartenergy/electricity/tariff",
-            "value_template": "{{ (value_json.rate_offpeak if (value_json.rate_offpeak < value_json.rate_peak) else value_json.rate_peak) if value_json.rate_offpeak < value_json.rate_peak else value_json.rate_peak }}",
-            "unit": "GBP/kWh",
-        },
-        {
-            "object_id": "smart_tariff_peak_rate",
-            "name": "Smart Tariff Peak Rate",
-            "state_topic": "smartenergy/electricity/tariff",
-            "value_template": "{{ value_json.rate_peak }}",
-            "unit": "GBP/kWh",
-        },
-        {
-            "object_id": "smart_tariff_offpeak_rate",
-            "name": "Smart Tariff Off‑Peak Rate",
-            "state_topic": "smartenergy/electricity/tariff",
-            "value_template": "{{ value_json.rate_offpeak }}",
-            "unit": "GBP/kWh",
-        },
-        {
-            "object_id": "smart_tariff_standing_charge",
-            "name": "Smart Tariff Standing Charge",
-            "state_topic": "smartenergy/electricity/tariff",
-            "value_template": "{{ value_json.standing_charge }}",
-            "unit": "GBP/day",
-        }
-    ]
+
+configs = [
+    # ELECTRICITY -------------------------------------------------------------
+
+    {
+        "object_id": "smart_tariff_elec_current_rate",
+        "name": "Electricity Current Rate",
+        "state_topic": "smartenergy/electricity/tariff",
+        "value_template": "{{ (value_json.rate_offpeak if (value_json.rate_offpeak < value_json.rate_peak) else value_json.rate_peak) | round(2) }}",
+        "unit": "GBP/kWh",
+        "device_name": "Smart Tariff Micro‑API — Electricity"
+    },
+    {
+        "object_id": "smart_tariff_elec_peak_rate",
+        "name": "Electricity Peak Rate",
+        "state_topic": "smartenergy/electricity/tariff",
+        "value_template": "{{ value_json.rate_peak | round(2) }}",
+        "unit": "GBP/kWh",
+        "device_name": "Smart Tariff Micro‑API — Electricity"
+    },
+    {
+        "object_id": "smart_tariff_elec_offpeak_rate",
+        "name": "Electricity Offpeak Rate",
+        "state_topic": "smartenergy/electricity/tariff",
+        "value_template": "{{ value_json.rate_offpeak | round(2) }}",
+        "unit": "GBP/kWh",
+        "device_name": "Smart Tariff Micro‑API — Electricity"
+    },
+    {
+        "object_id": "smart_tariff_elec_standing",
+        "name": "Electricity Standing Charge",
+        "state_topic": "smartenergy/electricity/tariff",
+        "value_template": "{{ value_json.standing_charge | round(2) }}",
+        "unit": "GBP/day",
+        "device_name": "Smart Tariff Micro‑API — Electricity"
+    },
+    # Electricity Usage Today
+    {
+        "object_id": "smart_tariff_elec_usage_today",
+        "name": "Electricity Usage Today",
+        "state_topic": "smartenergy/electricity/cost_today",
+        "value_template": "{{ (value_json.kwh_offpeak + value_json.kwh_peak) | round(1) }}",
+        "unit": "kWh",
+        "device_name": "Smart Tariff Micro‑API — Electricity"
+    },
+    # Electricity Cost Today
+    {
+        "object_id": "smart_tariff_elec_cost_today",
+        "name": "Electricity Cost Today",
+        "state_topic": "smartenergy/electricity/cost_today",
+        "value_template": "{{ value_json.cost_total | round(2) }}",
+        "unit": "GBP",
+        "device_name": "Smart Tariff Micro‑API — Electricity"
+    },
+
+    # GAS ---------------------------------------------------------------------
+
+    {
+        "object_id": "smart_tariff_gas_current_rate",
+        "name": "Gas Current Rate",
+        "state_topic": "smartenergy/gas/tariff",
+        "value_template": "{{ value_json.rate | round(2) }}",
+        "unit": "GBP/kWh",
+        "device_name": "Smart Tariff Micro‑API — Gas"
+    },
+    {
+        "object_id": "smart_tariff_gas_standing",
+        "name": "Gas Standing Charge",
+        "state_topic": "smartenergy/gas/tariff",
+        "value_template": "{{ value_json.standing_charge | round(2) }}",
+        "unit": "GBP/day",
+        "device_name": "Smart Tariff Micro‑API — Gas"
+    },
+    {
+        "object_id": "smart_tariff_gas_usage_today",
+        "name": "Gas Usage Today",
+        "state_topic": "smartenergy/gas/cost_today",
+        "value_template": "{{ value_json.kwh | round(1) }}",
+        "unit": "kWh",
+        "device_name": "Smart Tariff Micro‑API — Gas"
+    },
+    {
+        "object_id": "smart_tariff_gas_cost_today",
+        "name": "Gas Cost Today",
+        "state_topic": "smartenergy/gas/cost_today",
+        "value_template": "{{ value_json.cost_total | round(2) }}",
+        "unit": "GBP",
+        "device_name": "Smart Tariff Micro‑API — Gas"
+    }
+]
+
 
 
     for cfg in configs:
@@ -533,6 +594,13 @@ def gas_cost_today():
             "cost_total": None,
             "updated_utc": store["last_update"]
         }
+        
+        mqtt_pub("gas/cost_today", {
+            "kwh": kwh,
+            "cost_total": cost,
+            "updated_utc": store["last_update"]
+        })
+
 @app.get("/debug/entities")
 def debug_entities():
     """List virtual entities/resources and any names we see (helps discovery)."""
