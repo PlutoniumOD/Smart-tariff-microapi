@@ -122,24 +122,24 @@ def mqtt_discovery():
         retain=True
     )
 
-   for cfg in configs:
-        topic = f"homeassistant/sensor/{cfg['object_id']}/config"
-        payload = {
-            "name": cfg["name"],
-            "state_topic": cfg["state_topic"],
-            "value_template": cfg["value_template"],
-            "unit_of_measurement": cfg["unit"],
-            "unique_id": cfg["object_id"],
-            "device": device,
-            "json_attributes_topic": cfg["state_topic"]
-        }
-
-        logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
-        try:
-            mqtt.client.publish(topic, json.dumps(payload), qos=1, retain=True)
-            logger.warning("MQTT DISCOVERY: OK %s", cfg["object_id"])
-        except Exception as e:
-            logger.error("MQTT DISCOVERY: FAILED %s — %s", cfg["object_id"], e)
+       for cfg in configs:
+            topic = f"homeassistant/sensor/{cfg['object_id']}/config"
+            payload = {
+                "name": cfg["name"],
+                "state_topic": cfg["state_topic"],
+                "value_template": cfg["value_template"],
+                "unit_of_measurement": cfg["unit"],
+                "unique_id": cfg["object_id"],
+                "device": device,
+                "json_attributes_topic": cfg["state_topic"]
+            }
+    
+            logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
+            try:
+                mqtt.client.publish(topic, json.dumps(payload), qos=1, retain=True)
+                logger.warning("MQTT DISCOVERY: OK %s", cfg["object_id"])
+            except Exception as e:
+                logger.error("MQTT DISCOVERY: FAILED %s — %s", cfg["object_id"], e)
 
     logger.warning("MQTT DISCOVERY: completed")
 
