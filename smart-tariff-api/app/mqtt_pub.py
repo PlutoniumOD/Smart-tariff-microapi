@@ -8,7 +8,7 @@ class MQTTPublisher:
         if username:
             self.client.username_pw_set(username, password or None)
         self.client.connect(host, port, keepalive=60)
-           self.client.loop_start()  # <-- REQUIRED so publish() actually sends
+        self.client.loop_start()  # <-- REQUIRED so publish() actually sends
 
     def pub(self, topic, payload):
         # ALWAYS publish under smartenergy/... regardless of config
