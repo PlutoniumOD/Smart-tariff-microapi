@@ -1,4 +1,4 @@
-# Changelog
+# Changelog 
 
 ## 1.2.0 (2026‑03‑19)
 - Added MQTT Discovery for Electricity & Gas
