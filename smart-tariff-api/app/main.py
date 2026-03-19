@@ -342,16 +342,25 @@ def on_startup():
 
     glow = GlowClient(opts["glowmarkt"]["email"], opts["glowmarkt"]["password"])
     # 3) MQTT (optional)
+    
     if opts["mqtt"]["enabled"]:
         try:
             _mqtt = MQTTPublisher(
-                opts["mqtt"]["host"], int(opts["mqtt"]["port"]),
-                opts["mqtt"].get("username",""), opts["mqtt"].get("password",""),
+                opts["mqtt"]["host"],
+                int(opts["mqtt"]["port"]),
+                opts["mqtt"].get("username", ""),
+                opts["mqtt"].get("password", ""),
                 opts["mqtt"]["topic_prefix"]
             )
-        except Exception:
+            logger.warning("MQTT INIT: publisher created successfully → %s", _mqtt)
+        except Exception as e:
+            logger.error("MQTT INIT: FAILED to create publisher — %s", e)
             _mqtt = None
+    
         globals()["mqtt"] = _mqtt
+    else:
+        logger.warning("MQTT INIT: disabled in configuration")
+
     # Publish MQTT Entites
     mqtt_discovery()
 
