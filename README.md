@@ -2,11 +2,11 @@
 # Smart Tariff Micro‑API (Home Assistant Add‑on)
 
 <p align="center">
-  https://img.shields.io/badge/Home%20Assistant-Addon-blue
-  https://img.shields.io/badge/MQTT-Discovery-brightgreen
-  https://img.shields.io/badge/Python-3.12-blue
-  https://img.shields.io/badge/Glowmarkt-DCC-orange
-  https://img.shields.io/badge/License-MIT-green
+  <img src="https://img.shields.io/badge/Home%20Assistant-Addon-blue" height="28" />
+  <img src="https://img.shields.io/badge/MQTT-Discovery-green" height="28" />
+  <img src="https://img.shields.io/badge/Python-3.12-blue" height="28" />
+  <img src="[https://img.shields.io/badge/License-MIT-green]" height="28" />
+  <img src="https://img.shields.io/badge/License-MIT-green" height="28" />
 </p>
 
 A lightweight tariff and energy‑cost engine for Home Assistant.  
