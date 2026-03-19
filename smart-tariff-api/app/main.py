@@ -46,6 +46,7 @@ def require_ok():
 # ---------- Helpers ----------
 
 def mqtt_discovery():
+logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
     if not mqtt:
         return
 
