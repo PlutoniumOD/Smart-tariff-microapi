@@ -61,8 +61,8 @@ def mqtt_discovery():
         {
             "object_id": "smart_tariff_elec_current_rate",
             "name": "Electricity Current Rate",
-            "state_topic": "smartenergy/electricity/tariff",
-            "value_template": "{{ (value_json.rate_offpeak if value_json.rate_offpeak < value_json.rate_peak else value_json.rate_peak) | round(2) }}",
+            "state_topic": "smartenergy/electricity/current_rate",
+            "value_template": "{{ value_json.rate | round(2) }}",
             "unit": "GBP/kWh",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
