@@ -60,36 +60,38 @@ def mqtt_discovery():
         "model": "DCC‑Bright Tariff Deriver"
     }
 
+
     configs = [
         {
             "object_id": "smart_tariff_current_rate",
             "name": "Smart Tariff Current Rate",
-            "state_topic": "smartenergy/electricity/current_rate",
-            "value_template": "{{ value_json.rate }}",
+            "state_topic": "smartenergy/electricity/tariff",
+            "value_template": "{{ (value_json.rate_offpeak if (value_json.rate_offpeak < value_json.rate_peak) else value_json.rate_peak) if value_json.rate_offpeak < value_json.rate_peak else value_json.rate_peak }}",
+            "unit": "GBP/kWh",
+        },
+        {
+            "object_id": "smart_tariff_peak_rate",
+            "name": "Smart Tariff Peak Rate",
+            "state_topic": "smartenergy/electricity/tariff",
+            "value_template": "{{ value_json.rate_peak }}",
+            "unit": "GBP/kWh",
+        },
+        {
+            "object_id": "smart_tariff_offpeak_rate",
+            "name": "Smart Tariff Off‑Peak Rate",
+            "state_topic": "smartenergy/electricity/tariff",
+            "value_template": "{{ value_json.rate_offpeak }}",
             "unit": "GBP/kWh",
         },
         {
             "object_id": "smart_tariff_standing_charge",
             "name": "Smart Tariff Standing Charge",
-            "state_topic": "smartenergy/electricity/current_rate",
+            "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.standing_charge }}",
             "unit": "GBP/day",
-        },
-        {
-            "object_id": "smart_tariff_usage_today",
-            "name": "Smart Tariff Usage Today",
-            "state_topic": "smartenergy/electricity/cost_today",
-            "value_template": "{{ (value_json.kwh_offpeak | float) + (value_json.kwh_peak | float) }}",
-            "unit": "kWh",
-        },
-        {
-            "object_id": "smart_tariff_cost_today",
-            "name": "Smart Tariff Cost Today",
-            "state_topic": "smartenergy/electricity/cost_today",
-            "value_template": "{{ value_json.cost_total | float }}",
-            "unit": "GBP",
         }
     ]
+
 
     for cfg in configs:
         topic = f"homeassistant/sensor/{cfg['object_id']}/config"
