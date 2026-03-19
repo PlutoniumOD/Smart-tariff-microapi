@@ -88,14 +88,14 @@ def mqtt_discovery():
         retain=True
     )
 
-    # 3. Usage Today
+
+    # 3. Usage Today (kWh = offpeak + peak)
     mqtt.client.publish(
         f"{prefix}_usage_today/config",
         json.dumps({
             "name": "Smart Tariff Usage Today",
             "state_topic": "smartenergy/electricity/cost_today",
-            "value_template": >
-                "{{ value_json.kwh_offpeak | float + value_json.kwh_peak | float }}",
+            "value_template": "{{ (value_json.kwh_offpeak | float) + (value_json.kwh_peak | float) }}",
             "unit_of_measurement": "kWh",
             "unique_id": "smart_tariff_usage_today",
             "device": device_info
@@ -103,6 +103,7 @@ def mqtt_discovery():
         qos=1,
         retain=True
     )
+
 
     # 4. Cost Today
     mqtt.client.publish(
