@@ -337,12 +337,16 @@ def poll_bright():
             try:
                 rate_now, _, _ = compute_current_unit_rate()
                 if rate_now is not None:
-                    # Seed both on first success so current-rate isn't zero
-                    if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and \
-                       (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
+                # Only seed the bucket for the CURRENT window
+                if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
+                    try:
+                        if base_engine.is_offpeak(now_local()):
+                            store["elec"]["last_offpeak_rate"] = rate_now
+                        else:
+                            store["elec"]["last_peak_rate"] = rate_now
+                    except Exception:
+                        # Use off-peak as safe default for first-run
                         store["elec"]["last_offpeak_rate"] = rate_now
-                        store["elec"]["last_peak_rate"] = rate_now
-
                     try:
                         if base_engine.is_offpeak(now_local()):
                             store["elec"]["last_offpeak_rate"] = rate_now
