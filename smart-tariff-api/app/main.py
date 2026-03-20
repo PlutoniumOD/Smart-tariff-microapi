@@ -336,8 +336,12 @@ def poll_bright():
         if er:
             try:
                 rate_now, _, _ = compute_current_unit_rate()
+        
                 if rate_now is not None:
-                    # Only seed the bucket for the CURRENT window
+        
+                    # -------------------------------
+                    # FIRST‑RUN SEEDING (SAFE VERSION)
+                    # -------------------------------
                     if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
                         try:
                             if base_engine.is_offpeak(now_local()):
@@ -345,20 +349,24 @@ def poll_bright():
                             else:
                                 store["elec"]["last_peak_rate"] = rate_now
                         except Exception:
-                            # Use off-peak as safe default for first-run
+                            # If offpeak/peak cannot be determined, default to off-peak bucket
                             store["elec"]["last_offpeak_rate"] = rate_now
-                        try:
-                            if base_engine.is_offpeak(now_local()):
-                                store["elec"]["last_offpeak_rate"] = rate_now
-                            else:
-                                store["elec"]["last_peak_rate"] = rate_now
+        
+                    # ----------------------------------------
+                    # NORMAL UPDATE — WRITE ONLY CURRENT WINDOW
+                    # ----------------------------------------
+                    try:
+                        if base_engine.is_offpeak(now_local()):
+                            store["elec"]["last_offpeak_rate"] = rate_now
+                        else:
+                            store["elec"]["last_peak_rate"] = rate_now
                     except Exception:
-                        # Do NOT overwrite buckets on failure — fallback later handles this!
+                        # Do NOT overwrite any bucket on schedule failure
                         pass
+        
             except Exception:
                 # swallow transient API hiccups
                 pass
-
         # GAS: leave as-is for now (you can convert pence->GBP when HAN is back)
         gr = glow.get_gas_resource()
         if gr:
@@ -370,7 +378,6 @@ def poll_bright():
                                                                 tg.current_rates.standing_charge)) / 100.0
             except Exception:
                 pass
-
     finally:
         store["last_update"] = datetime.utcnow().isoformat()
         store_save(store)
