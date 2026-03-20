@@ -353,8 +353,8 @@ def poll_bright():
                         else:
                             store["elec"]["last_peak_rate"] = rate_now
                     except Exception:
-                        # If schedule check fails, at least update peak
-                        store["elec"]["last_peak_rate"] = rate_now
+                        # Do NOT overwrite buckets on failure — fallback later handles this!
+                        pass
             except Exception:
                 # swallow transient API hiccups
                 pass
