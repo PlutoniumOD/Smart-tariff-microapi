@@ -337,21 +337,21 @@ def poll_bright():
             try:
                 rate_now, _, _ = compute_current_unit_rate()
                 if rate_now is not None:
-                # Only seed the bucket for the CURRENT window
-                if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
-                    try:
-                        if base_engine.is_offpeak(now_local()):
+                    # Only seed the bucket for the CURRENT window
+                    if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
+                        try:
+                            if base_engine.is_offpeak(now_local()):
+                                store["elec"]["last_offpeak_rate"] = rate_now
+                            else:
+                                store["elec"]["last_peak_rate"] = rate_now
+                        except Exception:
+                            # Use off-peak as safe default for first-run
                             store["elec"]["last_offpeak_rate"] = rate_now
-                        else:
-                            store["elec"]["last_peak_rate"] = rate_now
-                    except Exception:
-                        # Use off-peak as safe default for first-run
-                        store["elec"]["last_offpeak_rate"] = rate_now
-                    try:
-                        if base_engine.is_offpeak(now_local()):
-                            store["elec"]["last_offpeak_rate"] = rate_now
-                        else:
-                            store["elec"]["last_peak_rate"] = rate_now
+                        try:
+                            if base_engine.is_offpeak(now_local()):
+                                store["elec"]["last_offpeak_rate"] = rate_now
+                            else:
+                                store["elec"]["last_peak_rate"] = rate_now
                     except Exception:
                         # Do NOT overwrite buckets on failure — fallback later handles this!
                         pass
