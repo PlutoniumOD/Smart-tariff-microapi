@@ -267,9 +267,16 @@ def compute_current_unit_rate():
                 return store["elec"]["last_offpeak_rate"], None, None
             else:
                 return store["elec"]["last_peak_rate"], None, None
+
         except Exception:
-            # Last-resort fallback
-            return store["elec"]["last_peak_rate"], None, None
+            # If we cannot determine off/peak, return BOTH buckets safely
+            # Prefer offpeak at night, peak during the day based on fixed times
+            hour = now.hour
+            if 0 <= hour < 7:   # 00:00–07:00
+                return store["elec"]["last_offpeak_rate"], None, None
+            else:
+                return store["elec"]["last_peak_rate"], None, None
+
 
     except Exception:
         return None, None, None
@@ -320,7 +327,7 @@ def ensure_store():
             logger.warning("Store load failed; creating default store: %s", e)
             store = {
                 "last_update": None,
-                "elec": {"last_offpeak_rate": 0.0, "last_peak_rate": 0.0, "standing_charge": 0.0},
+                "elec": {"last_offpeak_rate": opts["initial_offpeak_rate"], "last_peak_rate": opts["initial_peak_rate"], "standing_charge": opts["initial_standing_charge"]},
                 "gas":  {"last_rate": 0.0, "standing_charge": 0.0},
                 "intelligent": {"windows": []},
             }
@@ -355,9 +362,16 @@ def poll_bright():
         
                     # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
                     if is_offpeak:
-                        store["elec"]["last_offpeak_rate"] = rate_now
-                    else:
-                        store["elec"]["last_peak_rate"] = rate_now
+                        # VALIDATE rate_now before writing
+                        if rate_now < 0.001 or rate_now > 1.0:
+                            # ignore insane values, likely DCC garbage or fallback malfunction
+                            pass
+                        else:
+                            if is_offpeak:
+                                store["elec"]["last_offpeak_rate"] = rate_now
+                            else:
+                                store["elec"]["last_peak_rate"] = rate_now
+
         
             except Exception:
                 # swallow transient API hiccups
