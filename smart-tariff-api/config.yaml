@@ -26,7 +26,7 @@ options:
     e7_offpeak_end_gmt: "07:30"
     timezone: "Europe/London"
   
-  Initial_values:  
+  initial_values:
     elec_offpeak_rate: 0.0515,
     elec_peak_rate: 0.3852,
     elec_standing_charge: 0.4174
