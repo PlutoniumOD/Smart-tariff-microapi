@@ -24,7 +24,10 @@ options:
     # E7 baseline (GMT window; DST handled automatically)
     e7_offpeak_start_gmt: "00:30"
     e7_offpeak_end_gmt: "07:30"
-
+    "initial_offpeak_rate": 0.0515,
+    "initial_peak_rate": 0.3852,
+    "initial_standing_charge": 0.4174
+    
     timezone: "Europe/London"
 
     # Windowed EV modes (enter pairs of HH:MM,HH:MM for each off-peak window in GMT)
