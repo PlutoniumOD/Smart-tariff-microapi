@@ -21,7 +21,7 @@ app = FastAPI(title="Smart Tariff Micro‑API")
 import logging
 logger = logging.getLogger("smart-tariff")
 # Globals
-opts = None
+opts = load_options()
 store = None
 zone = None
 zone_name = None
