@@ -543,7 +543,7 @@ def _is_offpeak_at(dt_local: datetime) -> bool:
     except Exception:
         return False
 
-app.get("/electricity/cost/today")
+@app.get("/electricity/cost/today")
 def electricity_cost_today():
     """Compute today's electricity cost using last-known peak/off-peak & windows (+ standing)."""
     try:
@@ -612,7 +612,7 @@ def electricity_cost_today():
         return fallback
 
 
-app.get("/gas/cost/today")
+@app.get("/gas/cost/today")
 def gas_cost_today():
     """Compute today's gas cost with single rate + standing charge."""
     try:
