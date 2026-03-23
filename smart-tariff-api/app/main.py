@@ -356,11 +356,11 @@ def poll_bright():
                         pass
         
                     # ---- FIRST-RUN SEEDING (SAFE) ----
-                    if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
-                        if is_offpeak:
-                            store["elec"]["last_offpeak_rate"] = rate_now
-                        else:
-                            store["elec"]["last_peak_rate"] = rate_now
+                    # if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
+                    #     if is_offpeak:
+                    #         store["elec"]["last_offpeak_rate"] = rate_now
+                    #     else:
+                    #         store["elec"]["last_peak_rate"] = rate_now
         
                     # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
                     if is_offpeak:
