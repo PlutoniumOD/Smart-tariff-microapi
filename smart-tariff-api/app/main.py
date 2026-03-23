@@ -331,7 +331,8 @@ def poll_bright():
     global store
     ensure_store()
     try:
-        # ELECTRICITY: derive the current unit rate from cost/consumption
+
+        # ELECTRICITY
         er = glow.get_electricity_resource()
         if er:
             try:
@@ -339,34 +340,22 @@ def poll_bright():
         
                 if rate_now is not None:
         
-                    # -------------------------------
-                    # FIRST‑RUN SEEDING (SAFE VERSION)
-                    # -------------------------------
+                    # --- First‑run seeding (safe) ---
                     if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
-                        try:
-                            if base_engine.is_offpeak(now_local()):
-                                store["elec"]["last_offpeak_rate"] = rate_now
-                            else:
-                                store["elec"]["last_peak_rate"] = rate_now
-                        except Exception:
-                            # If offpeak/peak cannot be determined, default to off-peak bucket
-                            store["elec"]["last_offpeak_rate"] = rate_now
-        
-                    # ----------------------------------------
-                    # NORMAL UPDATE — WRITE ONLY CURRENT WINDOW
-                    # ----------------------------------------
-                    try:
                         if base_engine.is_offpeak(now_local()):
                             store["elec"]["last_offpeak_rate"] = rate_now
                         else:
                             store["elec"]["last_peak_rate"] = rate_now
-                    except Exception:
-                        # Do NOT overwrite any bucket on schedule failure
-                        pass
+        
+                    # --- Normal update ---
+                    if base_engine.is_offpeak(now_local()):
+                        store["elec"]["last_offpeak_rate"] = rate_now
+                    else:
+                        store["elec"]["last_peak_rate"] = rate_now
         
             except Exception:
-                # swallow transient API hiccups
                 pass
+
         # GAS: leave as-is for now (you can convert pence->GBP when HAN is back)
         gr = glow.get_gas_resource()
         if gr:
@@ -463,29 +452,16 @@ def health():
     }
 
 
+
 @app.get("/electricity/current-rate")
 def electricity_current_rate():
     ctx = build_ctx(include_intel=True)
 
-    # Derive the live unit rate from cost/consumption
+    # Derive live unit rate
     rate_now, _, _ = compute_current_unit_rate()
 
-    # If we got a valid rate, use it as api override and also keep store up to date
-    api_rate = rate_now if (rate_now is not None) else None
-    if rate_now is not None:
-        # Seed buckets if first run
-        if (store["elec"]["last_offpeak_rate"] or 0.0) == 0.0 and (store["elec"]["last_peak_rate"] or 0.0) == 0.0:
-            store["elec"]["last_offpeak_rate"] = rate_now
-            store["elec"]["last_peak_rate"]    = rate_now
-        # Update the current bucket based on schedule
-        try:
-            if base_engine.is_offpeak(now_local()):
-                store["elec"]["last_offpeak_rate"] = rate_now
-            else:
-                store["elec"]["last_peak_rate"] = rate_now
-            store_save(store)
-        except Exception:
-            pass
+    # api_rate is ONLY for overriding intelligent/offpeak windows
+    api_rate = rate_now if rate_now is not None else None
 
     base_rate = base_engine.current_rate(ctx, api_rate)
     rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
@@ -496,8 +472,10 @@ def electricity_current_rate():
         "updated_utc": store["last_update"],
         "intelligent_windows": store["intelligent"]["windows"],
     }
+
     mqtt_pub("electricity/current_rate", payload)
     return payload
+
 
 
 @app.get("/gas/current-rate")
