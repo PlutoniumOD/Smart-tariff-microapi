@@ -327,7 +327,9 @@ def ensure_store():
             logger.warning("Store load failed; creating default store: %s", e)
             store = {
                 "last_update": None,
-                "elec": {"last_offpeak_rate": opts["initial_offpeak_rate"], "last_peak_rate": opts["initial_peak_rate"], "standing_charge": opts["initial_standing_charge"]},
+                
+                "elec": {
+                    "last_offpeak_rate": opts["initial_values"]["elec_offpeak_rate"], "last_peak_rate": opts["initial_values"]["elec_peak_rate"], "standing_charge": opts["initial_values"]["elec_standing_charge"]},
                 "gas":  {"last_rate": 0.0, "standing_charge": 0.0},
                 "intelligent": {"windows": []},
             }
