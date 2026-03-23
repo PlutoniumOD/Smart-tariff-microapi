@@ -327,12 +327,8 @@ def ensure_store():
             store_save(store)
 
 # ---------- Polling job ----------
-def poll_bright():
-    global store
-    ensure_store()
-    try:
 
-        # ELECTRICITY
+        # ELECTRICITY: derive the current unit rate from cost/consumption
         er = glow.get_electricity_resource()
         if er:
             try:
@@ -340,20 +336,28 @@ def poll_bright():
         
                 if rate_now is not None:
         
-                    # --- First‑run seeding (safe) ---
+                    now = now_local()
+                    is_offpeak = False
+                    try:
+                        is_offpeak = base_engine.is_offpeak(now)
+                    except:
+                        pass
+        
+                    # ---- FIRST-RUN SEEDING (SAFE) ----
                     if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
-                        if base_engine.is_offpeak(now_local()):
+                        if is_offpeak:
                             store["elec"]["last_offpeak_rate"] = rate_now
                         else:
                             store["elec"]["last_peak_rate"] = rate_now
         
-                    # --- Normal update ---
-                    if base_engine.is_offpeak(now_local()):
+                    # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
+                    if is_offpeak:
                         store["elec"]["last_offpeak_rate"] = rate_now
                     else:
                         store["elec"]["last_peak_rate"] = rate_now
         
             except Exception:
+                # swallow transient API hiccups
                 pass
 
         # GAS: leave as-is for now (you can convert pence->GBP when HAN is back)
@@ -451,8 +455,6 @@ def health():
         "mode": opts["tariff"]["mode"] if opts else None
     }
 
-
-
 @app.get("/electricity/current-rate")
 def electricity_current_rate():
     ctx = build_ctx(include_intel=True)
@@ -460,7 +462,7 @@ def electricity_current_rate():
     # Derive live unit rate
     rate_now, _, _ = compute_current_unit_rate()
 
-    # api_rate is ONLY for overriding intelligent/offpeak windows
+    # Provide override only if derived
     api_rate = rate_now if rate_now is not None else None
 
     base_rate = base_engine.current_rate(ctx, api_rate)
@@ -475,8 +477,6 @@ def electricity_current_rate():
 
     mqtt_pub("electricity/current_rate", payload)
     return payload
-
-
 
 @app.get("/gas/current-rate")
 def gas_current_rate():
