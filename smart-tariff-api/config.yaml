@@ -62,9 +62,6 @@ schema:
     e7_offpeak_start_gmt: str
     e7_offpeak_end_gmt: str
     timezone: str
-    elec_offpeak_rate: str
-    elec_peak_rate: str
-    elec_standing_charge: str
     go_windows_gmt:
       - str?
     uw_ev_windows_gmt:
@@ -72,6 +69,11 @@ schema:
     ovo_windows_gmt:
       - str?
 
+  initial_values:
+    elec_offpeak_rate: str
+    elec_peak_rate: str
+    elec_standing_charge: str
+    
   octopus:
     api_key: str?
     account_id: str?
