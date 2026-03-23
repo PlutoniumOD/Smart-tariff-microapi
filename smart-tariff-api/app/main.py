@@ -327,50 +327,53 @@ def ensure_store():
             store_save(store)
 
 # ---------- Polling job ----------
-
-    # ELECTRICITY: derive the current unit rate from cost/consumption
-    er = glow.get_electricity_resource()
-    if er:
-        try:
-            rate_now, _, _ = compute_current_unit_rate()
-    
-            if rate_now is not None:
-    
-                now = now_local()
-                is_offpeak = False
-                try:
-                    is_offpeak = base_engine.is_offpeak(now)
-                except:
-                    pass
-    
-                # ---- FIRST-RUN SEEDING (SAFE) ----
-                if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
+def poll_bright():
+    global store
+    ensure_store()
+    try:
+        # ELECTRICITY: derive the current unit rate from cost/consumption
+        er = glow.get_electricity_resource()
+        if er:
+            try:
+                rate_now, _, _ = compute_current_unit_rate()
+        
+                if rate_now is not None:
+        
+                    now = now_local()
+                    is_offpeak = False
+                    try:
+                        is_offpeak = base_engine.is_offpeak(now)
+                    except:
+                        pass
+        
+                    # ---- FIRST-RUN SEEDING (SAFE) ----
+                    if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
+                        if is_offpeak:
+                            store["elec"]["last_offpeak_rate"] = rate_now
+                        else:
+                            store["elec"]["last_peak_rate"] = rate_now
+        
+                    # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
                     if is_offpeak:
                         store["elec"]["last_offpeak_rate"] = rate_now
                     else:
                         store["elec"]["last_peak_rate"] = rate_now
+        
+            except Exception:
+                # swallow transient API hiccups
+                pass
     
-                # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
-                if is_offpeak:
-                    store["elec"]["last_offpeak_rate"] = rate_now
-                else:
-                    store["elec"]["last_peak_rate"] = rate_now
-    
-        except Exception:
-            # swallow transient API hiccups
-            pass
-
-    # GAS: leave as-is for now (you can convert pence->GBP when HAN is back)
-    gr = glow.get_gas_resource()
-    if gr:
-        try:
-            tg = glow.get_tariff(gr)
-            store["gas"]["last_rate"] = float(getattr(tg.current_rates.rate, "value",
-                                                      tg.current_rates.rate)) / 100.0
-            store["gas"]["standing_charge"] = float(getattr(tg.current_rates.standing_charge, "value",
-                                                            tg.current_rates.standing_charge)) / 100.0
-        except Exception:
-            pass
+        # GAS: leave as-is for now (you can convert pence->GBP when HAN is back)
+        gr = glow.get_gas_resource()
+        if gr:
+            try:
+                tg = glow.get_tariff(gr)
+                store["gas"]["last_rate"] = float(getattr(tg.current_rates.rate, "value",
+                                                          tg.current_rates.rate)) / 100.0
+                store["gas"]["standing_charge"] = float(getattr(tg.current_rates.standing_charge, "value",
+                                                                tg.current_rates.standing_charge)) / 100.0
+            except Exception:
+                pass
     finally:
         store["last_update"] = datetime.utcnow().isoformat()
         store_save(store)
