@@ -24,12 +24,13 @@ options:
     # E7 baseline (GMT window; DST handled automatically)
     e7_offpeak_start_gmt: "00:30"
     e7_offpeak_end_gmt: "07:30"
-    "initial_offpeak_rate": 0.0515,
-    "initial_peak_rate": 0.3852,
-    "initial_standing_charge": 0.4174
-    
     timezone: "Europe/London"
-
+  
+  Initial_values:  
+    elec_offpeak_rate: 0.0515,
+    elec_peak_rate: 0.3852,
+    elec_standing_charge: 0.4174
+    
     # Windowed EV modes (enter pairs of HH:MM,HH:MM for each off-peak window in GMT)
     # Example for Octopus Go (UK historical default): "00:30","04:30"
     go_windows_gmt: []           # e.g. ["00:30","04:30"]
