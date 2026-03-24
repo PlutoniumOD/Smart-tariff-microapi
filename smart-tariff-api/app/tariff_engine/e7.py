@@ -20,17 +20,8 @@ def in_window(now: datetime, start_min_gmt: int, end_min_gmt: int, zone_name: st
     return cur >= start or cur < end
 
 class E7Engine:
-    def __init__(self, offpeak_start_gmt: str, offpeak_end_gmt: str, zone_name: str):
-        self.start_gmt = minutes(offpeak_start_gmt)
-        self.end_gmt = minutes(offpeak_end_gmt)
-        self.zone = zone_name
+    def __init__(self):
+        self.engine = TariffEngine()
 
-    def is_offpeak(self, dt: datetime) -> bool:
-        return in_window(dt, self.start_gmt, self.end_gmt, self.zone)
-
-    def current_rate(self, ctx, api_rate):
-        if api_rate and api_rate > 0:
-            return api_rate
-        if self.is_offpeak(ctx.now):
-            return ctx.last_offpeak_rate or ctx.last_peak_rate
-        return ctx.last_peak_rate or ctx.last_offpeak_rate
+    def get_current_rate(self, ctx, power, derived):
+        return self.engine.current_rate(ctx, power, derived)
