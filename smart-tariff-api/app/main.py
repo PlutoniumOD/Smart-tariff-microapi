@@ -504,22 +504,20 @@ def on_startup():
     else:
         logger.warning("MQTT INIT: disabled in configuration")
 
-    from .mqtt_inbound import PowerMQTTSubscriber
-    
-        if opts["mqtt"].get("enabled", False):
-            try:
-                globals()["power_sub"] = PowerMQTTSubscriber(
-                    host=opts["mqtt"]["host"],
-                    port=int(opts["mqtt"]["port"]),
-                    username=opts["mqtt"].get("username"),
-                    password=opts["mqtt"].get("password"),
-                    grott_state_topic="homeassistant/grott/WPDBCH1008/state",
-                    on_log=lambda s: logger.info(s),
-                )
-                power_sub.start()
-                logger.warning("MQTT INBOUND: subscriber started")
-            except Exception as e:
-                logger.error("MQTT INBOUND: FAILED to start subscriber — %s", e)
+    if opts["mqtt"].get("enabled", False):
+        try:
+            globals()["power_sub"] = PowerMQTTSubscriber(
+                host=opts["mqtt"]["host"],
+                port=int(opts["mqtt"]["port"]),
+                username=opts["mqtt"].get("username"),
+                password=opts["mqtt"].get("password"),
+                grott_state_topic="homeassistant/grott/WPDBCH1008/state",
+                on_log=lambda s: logger.info(s),
+            )
+            power_sub.start()
+            logger.warning("MQTT INBOUND: subscriber started")
+        except Exception as e:
+            logger.error("MQTT INBOUND: FAILED to start subscriber — %s", e)
 
     # Publish MQTT Entites
     logger.warning("MQTT INIT: running mqtt_discovery()…")
