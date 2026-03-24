@@ -17,6 +17,7 @@ from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
 from .mqtt_inbound import PowerMQTTSubscriber, PowerContext as InboundPowerContext  # same fields as core_e7.PowerContext
+from .io.ha_solar import HASolarPoller
 from .tariff_engine.core_e7 import TariffEngine as SolarAwareEngine, TariffContext as CoreTariffContext
 
 import time
@@ -33,6 +34,7 @@ glow = None
 power_sub = None  # type: ignore
 base_engine = None
 intel_engine = None
+solar_poller = None  # type: ignore
 mqtt = None
 solar_engine = SolarAwareEngine()
 
@@ -360,20 +362,44 @@ def poll_bright():
             try:
                 rate_now, _, _ = compute_current_unit_rate()
         
-                if rate_now is not None:
-        
-                    now = now_local()
-                    # Prefer a simple, DST-aware local window guard for seeding store
-                    is_offpeak = _is_offpeak_simple(now)
-                    
-                    # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
-                    
-                    # VALIDATE rate before writing
-                    if 0.001 <= rate_now <= 1.0:
-                        if is_offpeak:
+                 # Bright tariff (authoritative, if available)
+                 bright_rate = None
+                 try:
+                     t = er.get_tariff()
+                     bright_rate = _pence_to_gbp(t.current_rates.rate)
+                 except Exception:
+                     bright_rate = None
+ 
+                 now = now_local()
+                 is_offpeak = _is_offpeak_simple(now)
+
+                # ---- Seed active bucket from Bright when present ----
+                if bright_rate is not None and 0.001 <= bright_rate <= 1.0:
+                    if is_offpeak:
+                        store["elec"]["last_offpeak_rate"] = bright_rate
+                    else:
+                        store["elec"]["last_peak_rate"] = bright_rate
+
+                # ---- Update from derived slot rate (only if present and sane) ----
+                if rate_now is not None and 0.001 <= rate_now <= 1.0:
+                    off = store["elec"]["last_offpeak_rate"] or 0.0
+                    peak = store["elec"]["last_peak_rate"] or off
+                    # Anti‑swap: refuse to overwrite the active bucket with a value
+                    # that is "too close" to the opposite bucket in the wrong window.
+                    EPS = 0.003
+                    if is_offpeak:
+                        if abs(rate_now - peak) <= EPS and peak > off:
+                            # looks like a peak value during off‑peak -> ignore
+                            pass
+                        else:
                             store["elec"]["last_offpeak_rate"] = rate_now
+                    else:
+                        if abs(rate_now - off) <= EPS and off < peak:
+                            # looks like an off‑peak value during peak -> ignore
+                            pass
                         else:
                             store["elec"]["last_peak_rate"] = rate_now
+
 
 
         
@@ -423,7 +449,7 @@ def poll_bright():
 # ---------- Startup ----------
 @app.on_event("startup")
 def on_startup():
-    global opts, store, zone, zone_name, glow, base_engine, intel_engine, mqtt
+    global opts, store, zone, zone_name, glow, base_engine, intel_engine, mqtt, solar_poller
     # 1) Options & store first
     opts = load_options()
     ensure_store()
@@ -457,6 +483,23 @@ def on_startup():
 
     if opts["mqtt"].get("enabled", False):
         try:
+            # Optional: start HA Solar poller (Supervisor by default)
+            ha_cfg = opts.get("homeassistant", {})
+            solar_enabled = ha_cfg.get("solar_enabled", True)
+            if solar_enabled:
+                solar_poller = HASolarPoller(
+                    entity_id=ha_cfg.get("solar_entity_id", "sensor.solaredge_ac_power"),
+                    use_supervisor=ha_cfg.get("use_supervisor", True),
+                    base_url=ha_cfg.get("base_url"),
+                    token=ha_cfg.get("token"),
+                    interval_secs=int(ha_cfg.get("solar_poll_secs", 15)),
+                    stale_after_secs=int(ha_cfg.get("solar_stale_secs", 60)),
+                    on_log=lambda s: logger.info(s),
+                    solar_supplier=(solar_poller.get_solar_w if solar_poller else None),
+                )
+                solar_poller.start()
+                logger.warning("HA SOLAR: poller started")
+
             globals()["power_sub"] = PowerMQTTSubscriber(
                 host=opts["mqtt"]["host"],
                 port=int(opts["mqtt"]["port"]),
@@ -464,6 +507,7 @@ def on_startup():
                 password=opts["mqtt"].get("password"),
                 grott_state_topic="homeassistant/grott/WPDBCH1008/state",
                 on_log=lambda s: logger.info(s),
+                solar_supplier=(solar_poller.get_solar_w if solar_poller else None),
             )
             power_sub.start()
             logger.warning("MQTT INBOUND: subscriber started")
@@ -490,6 +534,16 @@ def health():
         "last_update": store["last_update"] if store else None,
         "mode": opts["tariff"]["mode"] if opts else None
     }
+
+@app.get("/debug/power-snapshot")
+def debug_power_snapshot():
+    sub = globals().get("power_sub")
+    if not sub:
+        return {"error": "power_sub not started"}
+    snap = sub.get_debug_snapshot()
+    if not snap:
+        return {"error": "no recent GROTT payload"}
+    return snap
 
 
 
