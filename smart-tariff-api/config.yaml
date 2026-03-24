@@ -8,6 +8,7 @@ arch:
 startup: services
 init: false
 boot: auto
+homeassistant_api: true
 ports:
   8787/tcp: 8787
 map:
@@ -53,7 +54,6 @@ options:
     topic_prefix: "smartenergy"
 
   homeassistant:
-    homeassistant_api: true
     solar_enabled: true
     # If running as HA add-on: use supervisor proxy (default true)
     use_supervisor: true
