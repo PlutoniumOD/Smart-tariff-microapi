@@ -17,7 +17,7 @@ from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
 from .mqtt_inbound import PowerMQTTSubscriber, PowerContext as InboundPowerContext  # same fields as core_e7.PowerContext
-from .io.ha_solar import HASolarPoller
+from .ha_solar import HASolarPoller
 from .tariff_engine.core_e7 import TariffEngine as SolarAwareEngine, TariffContext as CoreTariffContext
 
 import time
