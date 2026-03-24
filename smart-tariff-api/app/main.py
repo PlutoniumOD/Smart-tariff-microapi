@@ -362,16 +362,16 @@ def poll_bright():
             try:
                 rate_now, _, _ = compute_current_unit_rate()
         
-                 # Bright tariff (authoritative, if available)
-                 bright_rate = None
-                 try:
-                     t = er.get_tariff()
-                     bright_rate = _pence_to_gbp(t.current_rates.rate)
-                 except Exception:
-                     bright_rate = None
- 
-                 now = now_local()
-                 is_offpeak = _is_offpeak_simple(now)
+                # Bright tariff (authoritative, if available)
+                bright_rate = None
+                try:
+                    t = er.get_tariff()
+                    bright_rate = _pence_to_gbp(t.current_rates.rate)
+                except Exception:
+                    bright_rate = None
+
+                now = now_local()
+                is_offpeak = _is_offpeak_simple(now)
 
                 # ---- Seed active bucket from Bright when present ----
                 if bright_rate is not None and 0.001 <= bright_rate <= 1.0:
