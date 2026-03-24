@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import time
 from dateutil import tz
 from .core_e7 import TariffEngine as CoreE7Engine
 
@@ -20,8 +21,18 @@ def in_window(now: datetime, start_min_gmt: int, end_min_gmt: int, zone_name: st
     return cur >= start or cur < end
 
 class E7Engine:
-    def __init__(self):
-        self.engine = TariffEngine()
+    def __init__(self, start_gmt: str = "00:30", end_gmt: str = "07:30", tzname: str = "Europe/London"):
+        # Expect "HH:MM" strings; store as hour/min ints (you can add DST handling if needed)
+        sh, sm = [int(x) for x in start_gmt.split(":")]
+        eh, em = [int(x) for x in end_gmt.split(":")]
+        self._start_hm = (sh, sm)
+        self._end_hm   = (eh, em)
+        self._tzname   = tzname
 
-    def get_current_rate(self, ctx, power, derived):
-        return self.engine.current_rate(ctx, power, derived)
+    def is_offpeak(self, dt_local):
+        # dt_local is already timezone-aware in your code (now_local()); if not, localize here
+        sh, sm = self._start_hm
+        eh, em = self._end_hm
+        start = dt_local.replace(hour=sh, minute=sm, second=0, microsecond=0)
+        end   = dt_local.replace(hour=eh, minute=em, second=0, microsecond=0)
+        return start <= dt_local < end
