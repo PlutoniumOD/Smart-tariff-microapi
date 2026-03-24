@@ -53,6 +53,7 @@ options:
     topic_prefix: "smartenergy"
 
   homeassistant:
+    homeassistant_api: true
     solar_enabled: true
     # If running as HA add-on: use supervisor proxy (default true)
     use_supervisor: true
