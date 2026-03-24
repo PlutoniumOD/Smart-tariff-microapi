@@ -512,46 +512,37 @@ def health():
 
 
 
- @app.get("/electricity/current-rate")
- def electricity_current_rate():
--    ctx = build_ctx(include_intel=True)
--
--    # Derive live unit rate
--    rate_now, _, _ = compute_current_unit_rate()
--
--    # Provide override only if derived
--    api_rate = rate_now if rate_now is not None else None
--
--    base_rate = base_engine.current_rate(ctx, api_rate)
--    rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
-+    ctx = build_ctx(include_intel=True)
-+
-+    # Latest derived unit rate from Bright (may be None)
-+    rate_now, _, _ = compute_current_unit_rate()
-+
-+    # Optional: explicit Bright tariff rate (authoritative). Keep None for now.
-+    bright_rate = None
-+
-+    # Build solar-aware context
-+    core_ctx = CoreTariffContext(
-+        now=now_local(),
-+        last_offpeak_rate=store["elec"]["last_offpeak_rate"],
-+        last_peak_rate=store["elec"]["last_peak_rate"],
-+        standing_charge=store["elec"]["standing_charge"],
-+        bright_rate=bright_rate
-+    )
-+
-+    # Live power snapshot (or zeros if stale)
-+    power = get_power_snapshot() or InboundPowerContext(0.0, 0.0, 0.0, 0.0)
-+
-+    base_rate = solar_engine.current_rate(
-+        ctx=core_ctx,
-+        power=power,
-+        derived_rate=rate_now
-+    )
-+
-+    # Preserve intelligent windows overlay if configured
-+    rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
+@app.get("/electricity/current-rate")
+def electricity_current_rate():
+
+    ctx = build_ctx(include_intel=True)
+
+    # Latest derived unit rate from Bright (may be None)
+    rate_now, _, _ = compute_current_unit_rate()
+
+    # Optional: explicit Bright tariff rate (authoritative). Keep None for now.
+    bright_rate = None
+
+    # Build solar-aware context
+    core_ctx = CoreTariffContext(
+        now=now_local(),
+        last_offpeak_rate=store["elec"]["last_offpeak_rate"],
+        last_peak_rate=store["elec"]["last_peak_rate"],
+        standing_charge=store["elec"]["standing_charge"],
+        bright_rate=bright_rate
+    )
+
+    # Live power snapshot (or zeros if stale)
+    power = get_power_snapshot() or InboundPowerContext(0.0, 0.0, 0.0, 0.0)
+
+    base_rate = solar_engine.current_rate(
+        ctx=core_ctx,
+        power=power,
+        derived_rate=rate_now
+    )
+
+    # Preserve intelligent windows overlay if configured
+    rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
  
      payload = {
          "rate": rate,
