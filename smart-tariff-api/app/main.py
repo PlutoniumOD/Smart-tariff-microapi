@@ -57,6 +57,12 @@ def require_ok():
     return True
 
 # ---------- Helpers ----------
+
+def _is_offpeak_simple(dt_local):
+    start = dt_local.replace(hour=0, minute=30, second=0, microsecond=0)
+    end   = dt_local.replace(hour=7, minute=30, second=0, microsecond=0)
+    return start <= dt_local < end
+
 def get_power_snapshot():
     sub = globals().get("power_sub")
     if not sub:
@@ -280,22 +286,10 @@ def compute_current_unit_rate():
             derived_rate = cost_gbp / kwh
             return derived_rate, cost_gbp, kwh
 
-        # ---- NO VALID SLOT (fallback logic) ----
-        now = now_local()
-        try:
-            if base_engine.is_offpeak(now):
-                return store["elec"]["last_offpeak_rate"], None, None
-            else:
-                return store["elec"]["last_peak_rate"], None, None
-
-        except Exception:
-            # If we cannot determine off/peak, return BOTH buckets safely
-            # Prefer offpeak at night, peak during the day based on fixed times
-            hour = now.hour
-            if 0 <= hour < 7:   # 00:00–07:00
-                return store["elec"]["last_offpeak_rate"], None, None
-            else:
-                return store["elec"]["last_peak_rate"], None, None
+        # ---- NO VALID SLOT ----
+        # Do NOT return a time-based fallback as a "derived" rate.
+        # Let the tariff engine decide fallback using Bright rate or stored buckets.
+        return None, None, None
 
 
     except Exception:
@@ -369,30 +363,18 @@ def poll_bright():
                 if rate_now is not None:
         
                     now = now_local()
-                    is_offpeak = False
-                    try:
-                        is_offpeak = base_engine.is_offpeak(now)
-                    except:
-                        pass
-        
-                    # ---- FIRST-RUN SEEDING (SAFE) ----
-                    # if store["elec"]["last_offpeak_rate"] == 0 and store["elec"]["last_peak_rate"] == 0:
-                    #     if is_offpeak:
-                    #         store["elec"]["last_offpeak_rate"] = rate_now
-                    #     else:
-                    #         store["elec"]["last_peak_rate"] = rate_now
-        
+                    # Prefer a simple, DST-aware local window guard for seeding store
+                    is_offpeak = _is_offpeak_simple(now)
+                    
                     # ---- NORMAL UPDATE (ONLY CURRENT BUCKET) ----
-                    if is_offpeak:
-                        # VALIDATE rate_now before writing
-                        if rate_now < 0.001 or rate_now > 1.0:
-                            # ignore insane values, likely DCC garbage or fallback malfunction
-                            pass
+                    
+                    # VALIDATE rate before writing
+                    if 0.001 <= rate_now <= 1.0:
+                        if is_offpeak:
+                            store["elec"]["last_offpeak_rate"] = rate_now
                         else:
-                            if is_offpeak:
-                                store["elec"]["last_offpeak_rate"] = rate_now
-                            else:
-                                store["elec"]["last_peak_rate"] = rate_now
+                            store["elec"]["last_peak_rate"] = rate_now
+
 
         
             except Exception:
@@ -519,8 +501,15 @@ def electricity_current_rate():
     # Latest derived unit rate from Bright (may be None)
     rate_now, _, _ = compute_current_unit_rate()
 
-    # Optional: explicit Bright tariff rate (authoritative). Keep None for now.
+    # Use Bright's current rate if available (authoritative).
     bright_rate = None
+    try:
+        er = glow.get_electricity_resource()
+        if er:
+            t = er.get_tariff()
+            bright_rate = _pence_to_gbp(t.current_rates.rate)
+    except Exception:
+        bright_rate = None
 
     # Build solar-aware context
     core_ctx = CoreTariffContext(
@@ -791,4 +780,17 @@ def debug_slot_pairs():
         return out
     except Exception as e:
         return {"error": str(e)}
+
+@app.get("/debug/e7-window")
+def debug_e7_window():
+    now = now_local()
+    return {
+        "now_local": now.isoformat(),
+        "is_offpeak_simple": _is_offpeak_simple(now),
+        "store_rates": {
+            "offpeak": store["elec"]["last_offpeak_rate"],
+            "peak": store["elec"]["last_peak_rate"],
+            "standing": store["elec"]["standing_charge"],
+        }
+    }
     
