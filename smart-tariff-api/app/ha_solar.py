@@ -123,4 +123,5 @@ class HASolarPoller:
             "last_http": self._last_http,
             "last_error": self._last_err,
             "last_url_tail": self._last_url.split("/api/states/")[-1] if self._last_url else None,
+            "token_present": bool(self._sup_token),
         }
