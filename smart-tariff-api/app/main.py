@@ -9,7 +9,6 @@ from dateutil import tz
 from .settings import load_options
 from .storage import load as store_load, save as store_save
 from .glow import GlowClient
-from .tariff_engine.core_e7 import TariffEngine        # Option A engine
 from .tariff_engine.e7 import E7Engine
 from .tariff_engine.windowed import WindowedEngine
 from .tariff_engine.flat import FlatEngine
@@ -17,10 +16,9 @@ from .tariff_engine.intelligent import IntelligentEngine
 from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
-from .mqtt_inbound import PowerMQTTSubscriber, PowerContext
+from .mqtt_inbound import PowerMQTTSubscriber, PowerContext as InboundPowerContext  # same fields as core_e7.PowerContext
 from .mqtt_pub import MQTTPublisher          # your existing publisher
 from .tariff_engine.core_e7 import TariffEngine as SolarAwareEngine, TariffContext as CoreTariffContext
-from .mqtt_inbound import PowerContext as InboundPowerContext  # same fields as core_e7.PowerContext
 
 import time
 import json
@@ -38,15 +36,6 @@ base_engine = None
 intel_engine = None
 mqtt = None
 solar_engine = SolarAwareEngine()
-
-def get_power_snapshot():
-    sub = globals().get("power_sub")
-    if not sub:
-        return None
-    try:
-        return sub.get_power_context()
-    except Exception:
-        return None
 
 
 BROKER_HOST = "core-mosquitto"
@@ -69,33 +58,14 @@ def require_ok():
     return True
 
 # ---------- Helpers ----------
-
-# Instantiate your E7 engine + MQTT publisher
-engine = TariffEngine()
-pub = MQTTPublisher(host=BROKER_HOST, port=BROKER_PORT,
-                    username=BROKER_USER, password=BROKER_PASS)
-
-try:
-    while True:
-        # Get latest power (or None if stale)
-        power: Optional[PowerContext] = sub.get_power_context()
-
-        # Build your TariffContext and derived_rate as you already do today:
-        # ctx = TariffContext(...)
-        # derived_rate = calc_from_cost_deltas(...)
-        # For brevity here, assume they’re available:
-        ctx = build_tariff_context_somehow()
-        derived_rate = calc_derived_rate_if_any()
-
-        # If power is None (stale), the Option A engine will fall back to time-based stored rate
-        rate = engine.current_rate(ctx=ctx, power=power or PowerContext(0, 0, 0, 0), derived_rate=derived_rate)
-
-        # Publish as usual
-        pub.publish_current_rate(rate)
-        time.sleep(10)
-
-finally:
-    sub.stop()
+def get_power_snapshot():
+    sub = globals().get("power_sub")
+    if not sub:
+        return None
+    try:
+        return sub.get_power_context()
+    except Exception:
+        return None
 
 def mqtt_discovery():
     logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
@@ -541,54 +511,58 @@ def health():
     }
 
 
-@app.get("/electricity/current-rate")
-def electricity_current_rate():
-    ctx = build_ctx(include_intel=True)
 
-    # Derived unit rate from Bright cost/consumption (may be None)
-    rate_now, _, _ = compute_current_unit_rate()
+ @app.get("/electricity/current-rate")
+ def electricity_current_rate():
+-    ctx = build_ctx(include_intel=True)
+-
+-    # Derive live unit rate
+-    rate_now, _, _ = compute_current_unit_rate()
+-
+-    # Provide override only if derived
+-    api_rate = rate_now if rate_now is not None else None
+-
+-    base_rate = base_engine.current_rate(ctx, api_rate)
+-    rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
++    ctx = build_ctx(include_intel=True)
++
++    # Latest derived unit rate from Bright (may be None)
++    rate_now, _, _ = compute_current_unit_rate()
++
++    # Optional: explicit Bright tariff rate (authoritative). Keep None for now.
++    bright_rate = None
++
++    # Build solar-aware context
++    core_ctx = CoreTariffContext(
++        now=now_local(),
++        last_offpeak_rate=store["elec"]["last_offpeak_rate"],
++        last_peak_rate=store["elec"]["last_peak_rate"],
++        standing_charge=store["elec"]["standing_charge"],
++        bright_rate=bright_rate
++    )
++
++    # Live power snapshot (or zeros if stale)
++    power = get_power_snapshot() or InboundPowerContext(0.0, 0.0, 0.0, 0.0)
++
++    base_rate = solar_engine.current_rate(
++        ctx=core_ctx,
++        power=power,
++        derived_rate=rate_now
++    )
++
++    # Preserve intelligent windows overlay if configured
++    rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
+ 
+     payload = {
+         "rate": rate,
+         "standing_charge": store["elec"]["standing_charge"],
+         "updated_utc": store["last_update"],
+         "intelligent_windows": store["intelligent"]["windows"],
+     }
+ 
+     mqtt_pub("electricity/current_rate", payload)
+     return payload
 
-    # Optional: fetch explicit Bright tariff rate here (if you prefer to pass it to the engine)
-    bright_rate = None
-    # Example (only if inexpensive and reliable in your environment):
-    # try:
-    #     er = glow.get_electricity_resource()
-    #     t = er.get_tariff()
-    #     bright_rate = _pence_to_gbp(t.current_rates.rate)
-    # except Exception:
-    #     bright_rate = None
-
-    # Build the new engine's TariffContext
-    core_ctx = CoreTariffContext(
-        now=now_local(),
-        last_offpeak_rate=store["elec"]["last_offpeak_rate"],
-        last_peak_rate=store["elec"]["last_peak_rate"],
-        standing_charge=store["elec"]["standing_charge"],
-        bright_rate=bright_rate
-    )
-
-    # Live power snapshot from MQTT inbound (can be None if stale)
-    power = get_power_snapshot() or InboundPowerContext(0.0, 0.0, 0.0, 0.0)
-
-    # Solar-aware rate selection
-    rate = solar_engine.current_rate(
-        ctx=core_ctx,
-        power=power,
-        derived_rate=rate_now
-    )
-
-    # Still allow intelligent windows to adjust base result if you want:
-    final_rate = intel_engine.current_rate(ctx, rate) if ctx.intelligent_windows else rate
-
-    payload = {
-        "rate": final_rate,
-        "standing_charge": store["elec"]["standing_charge"],
-        "updated_utc": store["last_update"],
-        "intelligent_windows": store["intelligent"]["windows"],
-    }
-
-    mqtt_pub("electricity/current_rate", payload)
-    return payload
 
 
 @app.get("/gas/current-rate")
