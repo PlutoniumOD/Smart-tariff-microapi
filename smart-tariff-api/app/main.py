@@ -9,6 +9,7 @@ from dateutil import tz
 from .settings import load_options
 from .storage import load as store_load, save as store_save
 from .glow import GlowClient
+from .tariff_engine.core_e7 import TariffEngine        # Option A engine
 from .tariff_engine.e7 import E7Engine
 from .tariff_engine.windowed import WindowedEngine
 from .tariff_engine.flat import FlatEngine
@@ -16,7 +17,6 @@ from .tariff_engine.intelligent import IntelligentEngine
 from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
-from tariff_engine.core_e7 import TariffEngine        # Option A engine
 from io.mqtt_inbound import PowerMQTTSubscriber, PowerContext
 from io.mqtt_pub import MQTTPublisher          # your existing publisher
 
