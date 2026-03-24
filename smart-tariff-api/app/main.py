@@ -16,7 +16,7 @@ from .tariff_engine.intelligent import IntelligentEngine
 from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
-from engine.core_e7 import TariffEngine        # Option A engine
+from tariff_engine.core_e7 import TariffEngine        # Option A engine
 from io.mqtt_inbound import PowerMQTTSubscriber, PowerContext
 from io.mqtt_pub import MQTTPublisher          # your existing publisher
 
