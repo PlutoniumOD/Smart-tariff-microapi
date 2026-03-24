@@ -847,4 +847,12 @@ def debug_e7_window():
             "standing": store["elec"]["standing_charge"],
         }
     }
+
+@app.get("/debug/solar")
+def debug_solar():
+    sp = globals().get("solar_poller")
+    if not sp:
+        return {"error": "solar_poller not started"}
+    status = sp.get_status()
+    return status
     
