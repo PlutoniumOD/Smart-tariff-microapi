@@ -56,8 +56,8 @@ options:
     enabled: true
     host: core-mosquitto
     port: 1883
-    username: mqtt_user
-    password: mqtt_password
+    username: mqtt
+    password: MQTT1
     client_id: smart_tariff_microapi_in
     topics:
       grott_state: homeassistant/grott/WPDBCH1008/state
