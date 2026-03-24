@@ -52,6 +52,17 @@ options:
     password: ""
     topic_prefix: "smartenergy"
 
+  mqtt_inbound:
+    enabled: true
+    host: core-mosquitto
+    port: 1883
+    username: mqtt_user
+    password: mqtt_password
+    client_id: smart_tariff_microapi_in
+    topics:
+      grott_state: homeassistant/grott/WPDBCH1008/state
+    stale_after_secs: 180
+
 schema:
   glowmarkt:
     email: str
