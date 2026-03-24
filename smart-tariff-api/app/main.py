@@ -19,6 +19,8 @@ from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
 from .mqtt_inbound import PowerMQTTSubscriber, PowerContext
 from .mqtt_pub import MQTTPublisher          # your existing publisher
+from .tariff_engine.core_e7 import TariffEngine as SolarAwareEngine, TariffContext as CoreTariffContext
+from .mqtt_inbound import PowerContext as InboundPowerContext  # same fields as core_e7.PowerContext
 
 import time
 import json
@@ -31,9 +33,20 @@ store = None
 zone = None
 zone_name = None
 glow = None
+power_sub = None  # type: ignore
 base_engine = None
 intel_engine = None
 mqtt = None
+solar_engine = SolarAwareEngine()
+
+def get_power_snapshot():
+    sub = globals().get("power_sub")
+    if not sub:
+        return None
+    try:
+        return sub.get_power_context()
+    except Exception:
+        return None
 
 
 BROKER_HOST = "core-mosquitto"
@@ -56,18 +69,6 @@ def require_ok():
     return True
 
 # ---------- Helpers ----------
-
-
-# Instantiate inbound subscriber
-sub = PowerMQTTSubscriber(
-    host=BROKER_HOST,
-    port=BROKER_PORT,
-    username=BROKER_USER,
-    password=BROKER_PASS,
-    grott_state_topic=GROTT_STATE_TOPIC,
-    on_log=print,
-)
-sub.start()
 
 # Instantiate your E7 engine + MQTT publisher
 engine = TariffEngine()
@@ -503,6 +504,23 @@ def on_startup():
     else:
         logger.warning("MQTT INIT: disabled in configuration")
 
+from .mqtt_inbound import PowerMQTTSubscriber
+
+    if opts["mqtt"].get("enabled", False):
+        try:
+            globals()["power_sub"] = PowerMQTTSubscriber(
+                host=opts["mqtt"]["host"],
+                port=int(opts["mqtt"]["port"]),
+                username=opts["mqtt"].get("username"),
+                password=opts["mqtt"].get("password"),
+                grott_state_topic="homeassistant/grott/WPDBCH1008/state",
+                on_log=lambda s: logger.info(s),
+            )
+            power_sub.start()
+            logger.warning("MQTT INBOUND: subscriber started")
+        except Exception as e:
+            logger.error("MQTT INBOUND: FAILED to start subscriber — %s", e)
+
     # Publish MQTT Entites
     logger.warning("MQTT INIT: running mqtt_discovery()…")
     mqtt_discovery()
@@ -524,21 +542,48 @@ def health():
         "mode": opts["tariff"]["mode"] if opts else None
     }
 
+
 @app.get("/electricity/current-rate")
 def electricity_current_rate():
     ctx = build_ctx(include_intel=True)
 
-    # Derive live unit rate
+    # Derived unit rate from Bright cost/consumption (may be None)
     rate_now, _, _ = compute_current_unit_rate()
 
-    # Provide override only if derived
-    api_rate = rate_now if rate_now is not None else None
+    # Optional: fetch explicit Bright tariff rate here (if you prefer to pass it to the engine)
+    bright_rate = None
+    # Example (only if inexpensive and reliable in your environment):
+    # try:
+    #     er = glow.get_electricity_resource()
+    #     t = er.get_tariff()
+    #     bright_rate = _pence_to_gbp(t.current_rates.rate)
+    # except Exception:
+    #     bright_rate = None
 
-    base_rate = base_engine.current_rate(ctx, api_rate)
-    rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
+    # Build the new engine's TariffContext
+    core_ctx = CoreTariffContext(
+        now=now_local(),
+        last_offpeak_rate=store["elec"]["last_offpeak_rate"],
+        last_peak_rate=store["elec"]["last_peak_rate"],
+        standing_charge=store["elec"]["standing_charge"],
+        bright_rate=bright_rate
+    )
+
+    # Live power snapshot from MQTT inbound (can be None if stale)
+    power = get_power_snapshot() or InboundPowerContext(0.0, 0.0, 0.0, 0.0)
+
+    # Solar-aware rate selection
+    rate = solar_engine.current_rate(
+        ctx=core_ctx,
+        power=power,
+        derived_rate=rate_now
+    )
+
+    # Still allow intelligent windows to adjust base result if you want:
+    final_rate = intel_engine.current_rate(ctx, rate) if ctx.intelligent_windows else rate
 
     payload = {
-        "rate": rate,
+        "rate": final_rate,
         "standing_charge": store["elec"]["standing_charge"],
         "updated_utc": store["last_update"],
         "intelligent_windows": store["intelligent"]["windows"],
@@ -546,6 +591,7 @@ def electricity_current_rate():
 
     mqtt_pub("electricity/current_rate", payload)
     return payload
+
 
 @app.get("/gas/current-rate")
 def gas_current_rate():
