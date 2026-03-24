@@ -58,8 +58,8 @@ options:
     # If running as HA add-on: use supervisor proxy (default true)
     use_supervisor: true
     # Only needed if NOT using supervisor:
-    #base_url: "http://homeassistant.local:8123"
-    #token: "eyJ0eXAiOiJKV1QiLCJ..."  # long-lived access token
+    base_url: "http://homeassistant.local:8123"
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI4ZGZlMTUzOWUxNzc0NDdkOWUyNjFmMjI5YWEzYzBjYSIsImlhdCI6MTc3NDM3NDc5MSwiZXhwIjoyMDg5NzM0NzkxfQ.NI95WpAB5B0A1PlWyrtMjzldfl80zYVxYSQrdkFWg2k"  # long-lived access token
     solar_entity_id: "sensor.solaredge_ac_power"
     solar_poll_secs: 15
     solar_stale_secs: 60
