@@ -40,6 +40,12 @@ class HASolarPoller:
         self._last_val: Optional[float] = None
         self._last_ts: float = 0.0
 
+        # Diagnostics
+        self._last_http: Optional[int] = None
+        self._last_err: Optional[str] = None
+        self._last_url: str = ""
+        self._mode: str = "supervisor" if use_supervisor else "core"
+
         # Supervisor token (if running as HA add-on)
         self._sup_token = os.environ.get("SUPERVISOR_TOKEN")
 
@@ -94,6 +100,8 @@ class HASolarPoller:
             val = float(state)
             return max(val, 0.0)
         except Exception:
+             # state was "unknown"/"unavailable" or non-numeric
+            self._last_err = f"Non-numeric state: {state}"
             return None
 
     def get_solar_w(self) -> Optional[float]:
@@ -103,3 +111,16 @@ class HASolarPoller:
         if age > self._stale_after:
             return None
         return self._last_val
+
+    def get_status(self) -> dict:
+        age = time.time() - self._last_ts if self._last_ts > 0 else None
+        return {
+            "mode": self._mode,
+            "entity_id": self._entity_id,
+            "last_value_w": self._last_val,
+            "age_secs": age,
+            "fresh": (age is not None and age <= self._stale_after),
+            "last_http": self._last_http,
+            "last_error": self._last_err,
+            "last_url_tail": self._last_url.split("/api/states/")[-1] if self._last_url else None,
+        }
