@@ -1,5 +1,5 @@
 
- app/io/ha_solar.py
+#app/ha_solar.py
 #
 # Polls Home Assistant for real-time SolarEdge AC power (W).
 # Supports:
