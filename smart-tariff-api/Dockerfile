@@ -26,6 +26,9 @@ RUN /app/venv/bin/pip install --upgrade pip setuptools wheel --break-system-pack
 COPY requirements.txt /app/
 RUN /app/venv/bin/pip install -r /app/requirements.txt --break-system-packages
 
+# --- Solar poller dependency ---
+RUN pip install --no-cache-dir requests==2.31.0
+
 # Copy application source
 COPY app /app/app
 COPY run.sh /run.sh
