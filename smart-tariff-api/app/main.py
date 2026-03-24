@@ -16,6 +16,11 @@ from .tariff_engine.intelligent import IntelligentEngine
 from .scheduler import start_scheduler
 from .mqtt_pub import MQTTPublisher
 from datetime import datetime, timedelta
+from engine.core_e7 import TariffEngine        # Option A engine
+from io.mqtt_inbound import PowerMQTTSubscriber, PowerContext
+from io.mqtt_pub import MQTTPublisher          # your existing publisher
+
+import time
 import json
 app = FastAPI(title="Smart Tariff Micro‑API")
 import logging
@@ -29,6 +34,13 @@ glow = None
 base_engine = None
 intel_engine = None
 mqtt = None
+
+
+BROKER_HOST = "core-mosquitto"
+BROKER_PORT = 1883
+BROKER_USER = "mqtt_user"
+BROKER_PASS = "mqtt_password"
+GROTT_STATE_TOPIC = "homeassistant/grott/WPDBCH1008/state"
 
 # ---------- Models ----------
 class Window(BaseModel):
@@ -45,6 +57,44 @@ def require_ok():
 
 # ---------- Helpers ----------
 
+
+# Instantiate inbound subscriber
+sub = PowerMQTTSubscriber(
+    host=BROKER_HOST,
+    port=BROKER_PORT,
+    username=BROKER_USER,
+    password=BROKER_PASS,
+    grott_state_topic=GROTT_STATE_TOPIC,
+    on_log=print,
+)
+sub.start()
+
+# Instantiate your E7 engine + MQTT publisher
+engine = TariffEngine()
+pub = MQTTPublisher(host=BROKER_HOST, port=BROKER_PORT,
+                    username=BROKER_USER, password=BROKER_PASS)
+
+try:
+    while True:
+        # Get latest power (or None if stale)
+        power: Optional[PowerContext] = sub.get_power_context()
+
+        # Build your TariffContext and derived_rate as you already do today:
+        # ctx = TariffContext(...)
+        # derived_rate = calc_from_cost_deltas(...)
+        # For brevity here, assume they’re available:
+        ctx = build_tariff_context_somehow()
+        derived_rate = calc_derived_rate_if_any()
+
+        # If power is None (stale), the Option A engine will fall back to time-based stored rate
+        rate = engine.current_rate(ctx=ctx, power=power or PowerContext(0, 0, 0, 0), derived_rate=derived_rate)
+
+        # Publish as usual
+        pub.publish_current_rate(rate)
+        time.sleep(10)
+
+finally:
+    sub.stop()
 
 def mqtt_discovery():
     logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
