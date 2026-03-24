@@ -176,9 +176,9 @@ class PowerMQTTSubscriber:
                    solar_from_ha = self._solar_supplier()
                except Exception:
                    solar_from_ha = None
-             if solar_from_ha is not None:
+            if solar_from_ha is not None:
                  solar_w = max(0.0, float(solar_from_ha))
-             else:
+            else:
                  solar_w = export_w + load_w - import_w - batt_discharge_w
                  if solar_w < 0:
                      solar_w = 0.0
