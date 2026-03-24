@@ -53,6 +53,7 @@ class PowerMQTTSubscriber:
         keepalive: int = 30,
         stale_after_secs: int = 180,
         on_log: Optional[Callable[[str], None]] = None,
+        solar_supplier: Optional[Callable[[], Optional[float]]] = None,
     ):
         self._host = host
         self._port = port
@@ -63,6 +64,7 @@ class PowerMQTTSubscriber:
         self._keepalive = keepalive
         self._stale_after = stale_after_secs
         self._log = on_log or (lambda s: None)
+        self._solar_supplier = solar_supplier
 
         self._client = mqtt.Client(client_id=self._client_id, clean_session=True)
         if self._username:
@@ -167,14 +169,62 @@ class PowerMQTTSubscriber:
             import_w         = max(0.0, f("pactouserr"))
             export_w         = max(0.0, f("pactogridr"))
 
-            # Estimate solar generation (non-negative)
-            solar_est_w = export_w + load_w - import_w - batt_discharge_w
-            if solar_est_w < 0:
-                solar_est_w = 0.0
-
+            # Prefer real solar from HA (if supplied & fresh), otherwise estimate
+            solar_from_ha = None
+            if self._solar_supplier:
+               try:
+                   solar_from_ha = self._solar_supplier()
+               except Exception:
+                   solar_from_ha = None
+             if solar_from_ha is not None:
+                 solar_w = max(0.0, float(solar_from_ha))
+             else:
+                 solar_w = export_w + load_w - import_w - batt_discharge_w
+                 if solar_w < 0:
+                     solar_w = 0.0
+    
             return PowerContext(
-                solar_w=solar_est_w,
+                solar_w=solar_w,
                 battery_discharge_w=batt_discharge_w,
                 grid_import_w=import_w,
                 load_w=load_w,
             )
+
+    def get_debug_snapshot(self) -> Optional[dict]:
+        """Return a debug dict with raw GROTT fields and solar source."""
+        with self._lock:
+            if self._last_seen_ts == 0 or (time.time() - self._last_seen_ts) > self._stale_after:
+                return None
+            get = self._last_payload.get
+            def f(key: str) -> float:
+                try:
+                    return float(get(key, 0)) / 10.0
+                except Exception:
+                    return 0.0
+            batt_discharge_w = max(0.0, f("pdischarge1"))
+            load_w           = max(0.0, f("plocaloadr"))
+            import_w         = max(0.0, f("pactouserr"))
+            export_w         = max(0.0, f("pactogridr"))
+
+            # compute both, and show which is used
+            est = export_w + load_w - import_w - batt_discharge_w
+            if est < 0:
+                est = 0.0
+            src = "estimate"
+            solar = est
+            if self._solar_supplier:
+                try:
+                    ha_val = self._solar_supplier()
+                except Exception:
+                    ha_val = None
+                if ha_val is not None:
+                    solar = max(0.0, float(ha_val))
+                    src = "ha"
+            return {
+                "battery_discharge_w": batt_discharge_w,
+                "load_w": load_w,
+                "grid_import_w": import_w,
+                "grid_export_w": export_w,
+                "solar_w": solar,
+                "solar_source": src
+            }
