@@ -52,17 +52,6 @@ options:
     password: ""
     topic_prefix: "smartenergy"
 
-  mqtt_inbound:
-    enabled: true
-    host: core-mosquitto
-    port: 1883
-    username: mqtt
-    password: MQTT1
-    client_id: smart_tariff_microapi_in
-    topics:
-      grott_state: homeassistant/grott/WPDBCH1008/state
-    stale_after_secs: 180
-
   homeassistant:
     solar_enabled: true
     # If running as HA add-on: use supervisor proxy (default true)
@@ -110,3 +99,13 @@ schema:
     username: str?
     password: str?
     topic_prefix: str
+  
+  homeassistant:
+    solar_enabled: bool?
+    use_supervisor: bool?
+    base_url: str? #Only needed if not using Supervisor
+    token: str?    #Only needed if not using Supervisor
+    solar_entity_id: str?
+    solar_poll_secs: int?
+    solar_stale_secs: int?
+  
