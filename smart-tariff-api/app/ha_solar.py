@@ -16,6 +16,22 @@ import threading
 from typing import Optional, Callable
 import requests  # Ensure available in Dockerfile/requirements
 
+_TOKEN_CANDIDATES = [
+    "/run/s6/container_environment/SUPERVISOR_TOKEN",  # s6 v3 common
+    "/run/secrets/SUPERVISOR_TOKEN"                    # sometimes used
+]
+
+def _read_supervisor_token_from_fs() -> Optional[str]:
+    for p in _TOKEN_CANDIDATES:
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except Exception:
+            pass
+    return None
+
 class HASolarPoller:
     def __init__(
         self,
@@ -48,6 +64,17 @@ class HASolarPoller:
 
         # Supervisor token (if running as HA add-on)
         self._sup_token = os.environ.get("SUPERVISOR_TOKEN")
+        
+        if not self._sup_token:
+            self._sup_token = _read_supervisor_token_from_fs()
+
+        # Diagnostics
+        self._last_http: Optional[int] = None
+        self._last_err: Optional[str] = None
+        self._last_url: str = ""
+        self._mode: str = "supervisor" if use_supervisor else "core"
+        self._token_paths_checked = list(_TOKEN_CANDIDATES)
+
 
     def start(self):
         self._stop_evt.clear()
@@ -124,4 +151,5 @@ class HASolarPoller:
             "last_error": self._last_err,
             "last_url_tail": self._last_url.split("/api/states/")[-1] if self._last_url else None,
             "token_present": bool(self._sup_token),
+            "token_paths_checked": getattr(self, "_token_paths_checked", [])
         }
