@@ -495,7 +495,7 @@ def on_startup():
                     interval_secs=int(ha_cfg.get("solar_poll_secs", 15)),
                     stale_after_secs=int(ha_cfg.get("solar_stale_secs", 60)),
                     on_log=lambda s: logger.info(s),
-                    solar_supplier=(solar_poller.get_solar_w if solar_poller else None),
+                    
                 )
                 solar_poller.start()
                 logger.warning("HA SOLAR: poller started")
