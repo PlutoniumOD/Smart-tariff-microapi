@@ -480,14 +480,14 @@ def on_startup():
         globals()["mqtt"] = _mqtt
     else:
         logger.warning("MQTT INIT: disabled in configuration")
-
+    # 3b) MQTT inbound subscriber + HA Solar poller (Supervisor by default)
     if opts["mqtt"].get("enabled", False):
         try:
             # Optional: start HA Solar poller (Supervisor by default)
             ha_cfg = opts.get("homeassistant", {})
             solar_enabled = ha_cfg.get("solar_enabled", True)
             if solar_enabled:
-                solar_poller = HASolarPoller(
+                sp = HASolarPoller(
                     entity_id=ha_cfg.get("solar_entity_id", "sensor.solaredge_ac_power"),
                     use_supervisor=ha_cfg.get("use_supervisor", True),
                     base_url=ha_cfg.get("base_url"),
@@ -497,9 +497,27 @@ def on_startup():
                     on_log=lambda s: logger.info(s),
                     
                 )
-                solar_poller.start()
+                sp.start()
+                # Store in module global (so /debug/solar sees THIS instance)
+                globals()["solar_poller"] = sp
                 logger.warning("HA SOLAR: poller started")
 
+
+                # Optional: log initial status right away
+                try:
+                    logger.warning("HA SOLAR status (boot): %s", sp.get_status())
+                except Exception:
+                    pass
+            else:
+                logger.warning("HA SOLAR: disabled via options")
+    
+        except Exception as e:
+            logger.error("HA SOLAR: FAILED to start poller — %s", e)
+            globals()["solar_poller"] = None
+
+        # ---- start MQTT inbound subscriber (own try) ----
+        try:
+            sp = globals().get("solar_poller")
             globals()["power_sub"] = PowerMQTTSubscriber(
                 host=opts["mqtt"]["host"],
                 port=int(opts["mqtt"]["port"]),
@@ -507,24 +525,25 @@ def on_startup():
                 password=opts["mqtt"].get("password"),
                 grott_state_topic="homeassistant/grott/WPDBCH1008/state",
                 on_log=lambda s: logger.info(s),
-                solar_supplier=(solar_poller.get_solar_w if solar_poller else None),
+                solar_supplier=(sp.get_solar_w if sp else None),
             )
             power_sub.start()
             logger.warning("MQTT INBOUND: subscriber started")
         except Exception as e:
             logger.error("MQTT INBOUND: FAILED to start subscriber — %s", e)
-
-    # Publish MQTT Entites
-    logger.warning("MQTT INIT: running mqtt_discovery()…")
-    mqtt_discovery()
-
-    # 4) Start the scheduler, then do a safe first poll
-    start_scheduler(poll_bright)
     
-    try:
-        poll_bright()
-    except Exception as e:
-        logger.warning("Initial poll failed (will retry on schedule): %s", e)
+    
+        # Publish MQTT Entites
+        logger.warning("MQTT INIT: running mqtt_discovery()…")
+        mqtt_discovery()
+    
+        # 4) Start the scheduler, then do a safe first poll
+        start_scheduler(poll_bright)
+        
+        try:
+            poll_bright()
+        except Exception as e:
+            logger.warning("Initial poll failed (will retry on schedule): %s", e)
 
 # ---------- Endpoints ----------
 @app.get("/health")
