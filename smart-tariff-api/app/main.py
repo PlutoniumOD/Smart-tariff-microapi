@@ -544,12 +544,12 @@ def electricity_current_rate():
     # Preserve intelligent windows overlay if configured
     rate = intel_engine.current_rate(ctx, base_rate) if ctx.intelligent_windows else base_rate
  
-     payload = {
+    payload = {
          "rate": rate,
          "standing_charge": store["elec"]["standing_charge"],
          "updated_utc": store["last_update"],
          "intelligent_windows": store["intelligent"]["windows"],
-     }
+    }
  
      mqtt_pub("electricity/current_rate", payload)
      return payload
