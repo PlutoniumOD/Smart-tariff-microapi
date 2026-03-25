@@ -60,6 +60,32 @@ def require_ok():
 
 # ---------- Helpers ----------
 
+def _is_offpeak_configured(now_local: datetime) -> bool:
+    """
+    Returns True if now_local is inside the configured E7 window,
+    where the window is defined in *GMT* in options and we convert
+    to local time (Europe/London) with DST handled correctly.
+    """
+    t = opts["tariff"]
+    start_h, start_m = [int(x) for x in t["e7_offpeak_start_gmt"].split(":")]
+    end_h, end_m     = [int(x) for x in t["e7_offpeak_end_gmt"].split(":")]
+
+    gmt = tz.gettz("Etc/GMT")  # fixed GMT (no DST)
+    # Build window today in GMT
+    today_gmt = now_local.astimezone(gmt).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_gmt = today_gmt.replace(hour=start_h, minute=start_m)
+    end_gmt   = today_gmt.replace(hour=end_h, minute=end_m)
+
+    # Convert window edges to local tz for comparison
+    start_local = start_gmt.astimezone(zone)
+    end_local   = end_gmt.astimezone(zone)
+
+    # Handle potential wrap
+    if start_local <= end_local:
+        return start_local <= now_local < end_local
+    else:
+        return now_local >= start_local or now_local < end_local
+
 def _is_offpeak_simple(dt_local):
     start = dt_local.replace(hour=0, minute=30, second=0, microsecond=0)
     end   = dt_local.replace(hour=7, minute=30, second=0, microsecond=0)
@@ -371,7 +397,7 @@ def poll_bright():
                     bright_rate = None
 
                 now = now_local()
-                is_offpeak = _is_offpeak_simple(now)
+                is_offpeak = _is_offpeak_configured(now)
 
                 # ---- Seed active bucket from Bright when present ----
                 if bright_rate is not None and 0.001 <= bright_rate <= 1.0:
@@ -659,7 +685,7 @@ def _local_midnight(dt: datetime) -> datetime:
 
 def _is_offpeak_at(dt_local: datetime) -> bool:
     try:
-        return base_engine.is_offpeak(dt_local)
+        return _is_offpeak_configured(dt_local)
     except Exception:
         return False
 
