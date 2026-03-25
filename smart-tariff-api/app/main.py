@@ -91,6 +91,18 @@ def _is_offpeak_simple(dt_local):
     end   = dt_local.replace(hour=7, minute=30, second=0, microsecond=0)
     return start <= dt_local < end
 
+def _accept_bright_for_window(bright: Optional[float], off: float, peak: float, is_offpeak: bool) -> Optional[float]:
+    if bright is None:
+        return None
+    # If both buckets exist, use closeness to the in-window bucket
+    if off and peak:
+        if is_offpeak:
+            return bright if abs(bright - off) < abs(bright - peak) else None
+        else:
+            return bright if abs(bright - peak) < abs(bright - off) else None
+    # If buckets are incomplete, refuse to guess
+    return None
+
 def get_power_snapshot():
     sub = globals().get("power_sub")
     if not sub:
@@ -399,35 +411,46 @@ def poll_bright():
                 now = now_local()
                 is_offpeak = _is_offpeak_configured(now)
 
-                # ---- Seed active bucket from Bright when present ----
-                if bright_rate is not None and 0.001 <= bright_rate <= 1.0:
-                    if is_offpeak:
-                        store["elec"]["last_offpeak_rate"] = bright_rate
-                    else:
-                        store["elec"]["last_peak_rate"] = bright_rate
+                # # ---- Seed active bucket from Bright when present ----
+                # if bright_rate is not None and 0.001 <= bright_rate <= 1.0:
+                #     if is_offpeak:
+                #         store["elec"]["last_offpeak_rate"] = bright_rate
+                #     else:
+                #         store["elec"]["last_peak_rate"] = bright_rate
 
-                # ---- Update from derived slot rate (only if present and sane) ----
+                # # ---- Update from derived slot rate (only if present and sane) ----
+                # if rate_now is not None and 0.001 <= rate_now <= 1.0:
+                #     off = store["elec"]["last_offpeak_rate"] or 0.0
+                #     peak = store["elec"]["last_peak_rate"] or off
+                #     # Anti‑swap: refuse to overwrite the active bucket with a value
+                #     # that is "too close" to the opposite bucket in the wrong window.
+                #     EPS = 0.003
+                #     if is_offpeak:
+                #         if abs(rate_now - peak) <= EPS and peak > off:
+                #             # looks like a peak value during off‑peak -> ignore
+                #             pass
+                #         else:
+                #             store["elec"]["last_offpeak_rate"] = rate_now
+                #     else:
+                #         if abs(rate_now - off) <= EPS and off < peak:
+                #             # looks like an off‑peak value during peak -> ignore
+                #             pass
+                #         else:
+                #             store["elec"]["last_peak_rate"] = rate_now
+
+                # ---- Update from derived slot rate (only if present, sane & closer to the right bucket) ----
                 if rate_now is not None and 0.001 <= rate_now <= 1.0:
-                    off = store["elec"]["last_offpeak_rate"] or 0.0
-                    peak = store["elec"]["last_peak_rate"] or off
-                    # Anti‑swap: refuse to overwrite the active bucket with a value
-                    # that is "too close" to the opposite bucket in the wrong window.
-                    EPS = 0.003
+                    off  = store["elec"]["last_offpeak_rate"] or 0.0
+                    peak = store["elec"]["last_peak_rate"]   or off
                     if is_offpeak:
-                        if abs(rate_now - peak) <= EPS and peak > off:
-                            # looks like a peak value during off‑peak -> ignore
-                            pass
-                        else:
+                        # Accept only if nearer to off-peak than to peak
+                        if abs(rate_now - off) < abs(rate_now - peak):
                             store["elec"]["last_offpeak_rate"] = rate_now
+                        # else ignore (looks like peak leaking into off-peak window)
                     else:
-                        if abs(rate_now - off) <= EPS and off < peak:
-                            # looks like an off‑peak value during peak -> ignore
-                            pass
-                        else:
+                        if abs(rate_now - peak) < abs(rate_now - off):
                             store["elec"]["last_peak_rate"] = rate_now
-
-
-
+                        # else ignore (looks like off-peak leaking into peak window)
         
             except Exception:
                 # swallow transient API hiccups
@@ -600,7 +623,7 @@ def electricity_current_rate():
     # Latest derived unit rate from Bright (may be None)
     rate_now, _, _ = compute_current_unit_rate()
 
-    # Use Bright's current rate if available (authoritative).
+    # Compute Bright "hint" (may be a single supplier rate, not E7-aware)
     bright_rate = None
     try:
         er = glow.get_electricity_resource()
@@ -609,6 +632,17 @@ def electricity_current_rate():
             bright_rate = _pence_to_gbp(t.current_rates.rate)
     except Exception:
         bright_rate = None
+
+    # In E7/windowed modes, accept Bright only if it matches the in-window bucket
+    mode = opts["tariff"]["mode"]
+    is_offpeak = _is_offpeak_configured(now_local())
+    if mode in ("e7", "go", "uw_ev", "ovo_powermove"):
+        bright_rate = _accept_bright_for_window(
+            bright_rate,
+            store["elec"]["last_offpeak_rate"],
+            store["elec"]["last_peak_rate"],
+            is_offpeak
+        )
 
     # Build solar-aware context
     core_ctx = CoreTariffContext(
