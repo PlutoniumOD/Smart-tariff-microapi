@@ -21,11 +21,11 @@ options:
     # Modes: e7 | go | flex | uw_ev | ovo_powermove | intelligent
     # (Agile/Tracker later)
     mode: "e7"
-
     # E7 baseline (GMT window; DST handled automatically)
     e7_offpeak_start_gmt: "00:30"
     e7_offpeak_end_gmt: "07:30"
     timezone: "Europe/London"
+    lock_buckets: true   # NEW: keep offpeak/peak rates fixed unless you turn this off
       
     # Windowed EV modes (enter pairs of HH:MM,HH:MM for each off-peak window in GMT)
     # Example for Octopus Go (UK historical default): "00:30","04:30"
@@ -74,6 +74,7 @@ schema:
     e7_offpeak_start_gmt: str
     e7_offpeak_end_gmt: str
     timezone: str
+    lock_buckets: bool?
     go_windows_gmt:
       - str?
     uw_ev_windows_gmt:
