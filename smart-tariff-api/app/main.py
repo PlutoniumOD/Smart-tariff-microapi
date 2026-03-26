@@ -894,4 +894,61 @@ def debug_solar():
         return {"error": "solar_poller not started"}
     status = sp.get_status()
     return status
+
+# ---------- Store debug helpers ----------
+
+@app.get("/debug/store/show")
+def debug_store_show():
+    """Return the current store dict and (if exposed) the on‑disk path hint."""
+    ensure_store()
+    path = None
+    try:
+        from . import storage as st
+        path = getattr(st, "STORE_PATH", None) or getattr(st, "STORE_FILE", None)
+    except Exception:
+        path = None
+    return {"path_hint": path or "/data (persistent add-on storage)", "store": store}
+
+@app.post("/debug/store/reset")
+def debug_store_reset(offpeak: float | None = None,
+                      peak: float | None = None,
+                      standing: float | None = None):
+    """
+    Reset electricity buckets to supplied values or fall back to initial_values.
+    Useful when a bucket got polluted; keeps all other store fields intact.
+    """
+    ensure_store()
+    iv = opts["initial_values"]
+    # fall back to initial values if not supplied
+    offpeak  = float(offpeak  if offpeak  is not None else iv["elec_offpeak_rate"])
+    peak     = float(peak     if peak     is not None else iv["elec_peak_rate"])
+    standing = float(standing if standing is not None else iv["elec_standing_charge"])
+
+    store["elec"]["last_offpeak_rate"] = offpeak
+    store["elec"]["last_peak_rate"]    = peak
+    store["elec"]["standing_charge"]   = standing
+    store_save(store)
+    return {"status": "ok", "elec": store["elec"]}
+
+@app.post("/debug/store/clear")
+def debug_store_clear():
+    """
+    Re-seed the whole store from initial defaults (same as first-run create).
+    """
+    globals()["store"] = None
+    ensure_store()   # will recreate from opts["initial_values"]
+    return {"status": "reseeded", "store": store}
+
+@app.get("/debug/store/path")
+def debug_store_path():
+    """
+    Attempt to reveal the exact on-disk store path if the storage module exports it.
+    Otherwise return a helpful hint.
+    """
+    try:
+        from . import storage as st
+        path = getattr(st, "STORE_PATH", None) or getattr(st, "STORE_FILE", None)
+        return {"path": path or "unknown", "note": "Inside the add-on, files persist under /data"}
+    except Exception:
+        return {"path": "unknown", "note": "Inside the add-on, files persist under /data"}
     
