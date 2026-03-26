@@ -635,7 +635,7 @@ def electricity_current_rate():
         "intelligent_windows": store["intelligent"]["windows"],
     }
     mqtt_pub("electricity/current_rate", payload)
-    return paylo
+    return payload
 
 @app.get("/gas/current-rate")
 def gas_current_rate():
