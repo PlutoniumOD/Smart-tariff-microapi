@@ -126,6 +126,52 @@ def _compute_time_based_rate() -> float:
     is_off = _is_offpeak_configured(now)  # your DST-aware helper
     return store["elec"]["last_offpeak_rate"] if is_off else store["elec"]["last_peak_rate"]
 
+def _publish_current_rate_once():
+    """Compute -> publish current rate (only if changed)"""
+    global _last_published_rate
+    ensure_store()
+    rate = _compute_time_based_rate()
+    if _last_published_rate is None or abs(rate - _last_published_rate) > 1e-9:
+        payload = {
+            "rate": rate,
+            "standing_charge": store["elec"]["standing_charge"],
+            "updated_utc": store["last_update"],
+            "intelligent_windows": store["intelligent"]["windows"],
+        }
+        mqtt_pub("electricity/current_rate", payload)
+        _last_published_rate = rate
+
+def start_current_rate_heartbeat(period_secs: int = 30):
+    """Start a background loop that keeps the MQTT current-rate sensor fresh."""
+    global _current_pub_thread, _current_pub_stop
+    if _current_pub_thread and _current_pub_thread.is_alive():
+        return
+    _current_pub_stop.clear()
+
+    def _loop():
+        # Publish immediately at startup
+        try:
+            _publish_current_rate_once()
+        except Exception:
+            pass
+
+        # Regular heartbeat
+        while not _current_pub_stop.is_set():
+            try:
+                _publish_current_rate_once()
+            except Exception:
+                pass
+            _current_pub_stop.wait(period_secs)
+
+    _current_pub_thread = threading.Thread(target=_loop, name="current-rate-publisher", daemon=True)
+    _current_pub_thread.start()
+
+def stop_current_rate_heartbeat():
+    global _current_pub_stop, _current_pub_thread
+    _current_pub_stop.set()
+    if _current_pub_thread and _current_pub_thread.is_alive():
+        _current_pub_thread.join(timeout=5)
+
 def mqtt_discovery():
     logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
 
