@@ -112,6 +112,20 @@ def get_power_snapshot():
     except Exception:
         return None
 
+# ---------- Current-rate heartbeat publisher ----------
+import threading
+import time
+
+_current_pub_thread = None
+_current_pub_stop = threading.Event()
+_last_published_rate = None
+
+def _compute_time_based_rate() -> float:
+    """Return the correct E7/windowed rate purely from time-of-day."""
+    now = now_local()
+    is_off = _is_offpeak_configured(now)  # your DST-aware helper
+    return store["elec"]["last_offpeak_rate"] if is_off else store["elec"]["last_peak_rate"]
+
 def mqtt_discovery():
     logger.warning("MQTT DISCOVERY: starting… mqtt object = %s", mqtt)
 
@@ -581,6 +595,9 @@ def on_startup():
         # 4) Start the scheduler, then do a safe first poll
         start_scheduler(poll_bright)
         
+        # NEW: start the current-rate heartbeat (every 30s is plenty)
+        start_current_rate_heartbeat(period_secs=30)
+
         try:
             poll_bright()
         except Exception as e:
