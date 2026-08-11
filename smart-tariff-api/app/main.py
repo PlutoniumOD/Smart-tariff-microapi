@@ -1,4 +1,6 @@
 # smart-tariff-api/app/main.py
+# smart-tariff-api/app/main.py
+# BUILD_MARKER: ENERGY_CLASSES_2026_08_11_V2
 
 from fastapi import FastAPI, Body, HTTPException, Depends
 from pydantic import BaseModel, Field
