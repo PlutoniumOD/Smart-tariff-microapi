@@ -353,7 +353,7 @@ def mqtt_discovery():
         logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
 
         try:
-    result = mqtt.client.publish(
+        result = mqtt.client.publish(
         topic,
         json.dumps(payload),
         qos=1,
