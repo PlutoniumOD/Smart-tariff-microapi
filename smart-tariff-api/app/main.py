@@ -242,7 +242,7 @@ def mqtt_discovery():
             "value_template": "{{ value_json.cost_total | round(2) }}",
             "device_class": "monetary",
             "state_class": "total",
-            "unit": "GBP"
+            "unit": "GBP",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
 
@@ -286,7 +286,7 @@ def mqtt_discovery():
             "value_template": "{{ value_json.cost_total | round(2) }}",
             "device_class": "monetary",
             "state_class": "total",
-            "unit": "GBP"
+            "unit": "GBP",
             "device_name": "Smart Tariff Micro‑API — Gas"
         }
     ]
