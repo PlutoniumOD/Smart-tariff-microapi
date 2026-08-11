@@ -27,6 +27,13 @@ RUN /app/venv/bin/pip install -r /app/requirements.txt --break-system-packages
 
 # Copy application source
 COPY app /app/app
+RUN echo "=== VERIFYING COPIED MAIN.PY ===" \
+    && grep -n "BUILD_MARKER: ENERGY_CLASSES_2026_08_11_V2" /app/app/main.py \
+    && grep -n -A 12 -B 2 "smart_tariff_elec_cost_today" /app/app/main.py \
+    && grep -n -A 12 -B 2 "smart_tariff_gas_cost_today" /app/app/main.py \
+    && sha256sum /app/app/main.py \
+    && /app/venv/bin/python -m py_compile /app/app/main.py \
+    && echo "=== MAIN.PY SYNTAX OK ==="
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 
