@@ -235,16 +235,7 @@ def mqtt_discovery():
             "suggested_display_precision": 3,
             "device_name": "Smart Tariff Micro-API — Electricity"
         },
-        {
-            "object_id": "smart_tariff_elec_cost_today",
-            "name": "Electricity Cost Today",
-            "state_topic": "smartenergy/electricity/cost_today",
-            "value_template": "{{ value_json.cost_total | round(2) }}",
-            "device_class": "monetary",
-            "state_class": "total",
-            "unit": "GBP",
-            "device_name": "Smart Tariff Micro‑API — Electricity"
-        },
+
 
         # ---------------- GAS ----------------
 
