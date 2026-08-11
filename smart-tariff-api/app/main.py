@@ -353,13 +353,67 @@ def mqtt_discovery():
         logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
 
         try:
-            mqtt.client.publish(topic, json.dumps(payload), qos=1, retain=True)
-            logger.warning("MQTT DISCOVERY: OK %s", cfg["object_id"])
-        except Exception as e:
-            logger.error("MQTT DISCOVERY: FAILED %s — %s", cfg["object_id"], e)
+    result = mqtt.client.publish(
+        topic,
+        json.dumps(payload),
+        qos=1,
+        retain=True,
+    )
+
+    result.wait_for_publish(timeout=5)
+
+    if result.rc == 0 and result.is_published():
+        logger.warning(
+            "MQTT DISCOVERY: OK %s -> %s",
+            cfg["object_id"],
+            topic,
+        )
+    else:
+        logger.error(
+            "MQTT DISCOVERY: FAILED %s rc=%s published=%s",
+            cfg["object_id"],
+            result.rc,
+            result.is_published(),
+        )
+
+except Exception as e:
+    logger.error(
+        "MQTT DISCOVERY: FAILED %s - %s",
+        cfg["object_id"],
+        e,
+    )
 
     logger.warning("MQTT DISCOVERY: completed")
 
+def schedule_mqtt_discovery(delay_seconds: int = 5):
+    """
+    Republish MQTT Discovery shortly after startup.
+
+    This protects against the MQTT connection not being fully ready when
+    FastAPI's startup handler first runs.
+    """
+    def _delayed_publish():
+        logger.warning(
+            "MQTT DISCOVERY: delayed republish scheduled in %s seconds",
+            delay_seconds,
+        )
+
+        time.sleep(delay_seconds)
+
+        try:
+            mqtt_discovery()
+        except Exception as e:
+            logger.error(
+                "MQTT DISCOVERY: delayed republish failed - %s",
+                e,
+            )
+
+    thread = threading.Thread(
+        target=_delayed_publish,
+        name="mqtt-discovery-republish",
+        daemon=True,
+    )
+    thread.start()
 def now_local() -> datetime:
     return datetime.now(tz=zone)
 
@@ -692,8 +746,8 @@ def on_startup():
     
     
         # Publish MQTT Entites
-        logger.warning("MQTT INIT: running mqtt_discovery()…")
-        mqtt_discovery()
+        logger.warning("MQTT INIT: scheduling mqtt_discovery()")
+        schedule_mqtt_discovery(delay_seconds=5)
     
         # 4) Start the scheduler, then do a safe first poll
         start_scheduler(poll_bright)
