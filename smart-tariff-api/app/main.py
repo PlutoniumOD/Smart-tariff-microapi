@@ -190,6 +190,8 @@ def mqtt_discovery():
             "state_topic": "smartenergy/electricity/current_rate",
             "value_template": "{{ value_json.rate | round(2) }}",
             "unit": "GBP/kWh",
+            "device_class": "monetary",
+            "state_class": "measurement",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
         {
@@ -198,6 +200,8 @@ def mqtt_discovery():
             "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.rate_peak | round(2) }}",
             "unit": "GBP/kWh",
+            "device_class": "monetary",
+            "state_class": "measurement",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
         {
@@ -205,6 +209,8 @@ def mqtt_discovery():
             "name": "Electricity Off‑Peak Rate",
             "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.rate_offpeak | round(2) }}",
+             "device_class": "monetary",
+            "state_class": "measurement",
             "unit": "GBP/kWh",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
@@ -213,6 +219,8 @@ def mqtt_discovery():
             "name": "Electricity Standing Charge",
             "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.standing_charge | round(2) }}",
+            "device_class": "monetary",
+            "state_class": "measurement",
             "unit": "GBP/day",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
@@ -220,16 +228,21 @@ def mqtt_discovery():
             "object_id": "smart_tariff_elec_usage_today",
             "name": "Electricity Usage Today",
             "state_topic": "smartenergy/electricity/cost_today",
-            "value_template": "{{ (value_json.kwh_offpeak + value_json.kwh_peak) | round(1) }}",
+            "value_template": "{{ (value_json.kwh_offpeak + value_json.kwh_peak) | float(0) | round(3) }}",
             "unit": "kWh",
-            "device_name": "Smart Tariff Micro‑API — Electricity"
+            "device_class": "energy",
+            "state_class": "total_increasing",
+            "suggested_display_precision": 3,
+            "device_name": "Smart Tariff Micro-API — Electricity"
         },
         {
             "object_id": "smart_tariff_elec_cost_today",
             "name": "Electricity Cost Today",
             "state_topic": "smartenergy/electricity/cost_today",
             "value_template": "{{ value_json.cost_total | round(2) }}",
-            "unit": "GBP",
+            "device_class": "monetary",
+            "state_class": "total",
+            "unit": "GBP"
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
 
@@ -240,6 +253,8 @@ def mqtt_discovery():
             "name": "Gas Current Rate",
             "state_topic": "smartenergy/gas/tariff",
             "value_template": "{{ value_json.rate | round(2) }}",
+            "device_class": "monetary",
+            "state_class": "measurement",
             "unit": "GBP/kWh",
             "device_name": "Smart Tariff Micro‑API — Gas"
         },
@@ -248,23 +263,30 @@ def mqtt_discovery():
             "name": "Gas Standing Charge",
             "state_topic": "smartenergy/gas/tariff",
             "value_template": "{{ value_json.standing_charge | round(2) }}",
+            "device_class": "monetary",
+            "state_class": "measurement",
             "unit": "GBP/day",
             "device_name": "Smart Tariff Micro‑API — Gas"
         },
-        {
+       {
             "object_id": "smart_tariff_gas_usage_today",
             "name": "Gas Usage Today",
             "state_topic": "smartenergy/gas/cost_today",
-            "value_template": "{{ value_json.kwh | round(1) }}",
+            "value_template": "{{ value_json.kwh | float(0) | round(3) }}",
             "unit": "kWh",
-            "device_name": "Smart Tariff Micro‑API — Gas"
+            "device_class": "energy",
+            "state_class": "total_increasing",
+            "suggested_display_precision": 3,
+            "device_name": "Smart Tariff Micro-API — Gas"
         },
         {
             "object_id": "smart_tariff_gas_cost_today",
             "name": "Gas Cost Today",
             "state_topic": "smartenergy/gas/cost_today",
             "value_template": "{{ value_json.cost_total | round(2) }}",
-            "unit": "GBP",
+            "device_class": "monetary",
+            "state_class": "total",
+            "unit": "GBP"
             "device_name": "Smart Tariff Micro‑API — Gas"
         }
     ]
@@ -290,8 +312,17 @@ def mqtt_discovery():
             "unit_of_measurement": cfg["unit"],
             "unique_id": cfg["object_id"],
             "device": device_block,
-            "json_attributes_topic": cfg["state_topic"]
+            "json_attributes_topic": cfg["state_topic"],
         }
+        
+        if cfg.get("device_class"):
+            payload["device_class"] = cfg["device_class"]
+        
+        if cfg.get("state_class"):
+            payload["state_class"] = cfg["state_class"]
+        
+        if cfg.get("suggested_display_precision") is not None:
+            payload["suggested_display_precision"] = cfg["suggested_display_precision"]
 
         logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
 
