@@ -179,7 +179,31 @@ def mqtt_discovery():
     if not mqtt:
         logger.error("MQTT DISCOVERY: ABORT — mqtt publisher not initialised")
         return
+    # Wait for the Paho client to finish connecting before publishing
+    # retained MQTT Discovery configurations.
+    connected = False
 
+    for attempt in range(20):
+        try:
+            if mqtt.client.is_connected():
+                connected = True
+                break
+        except Exception:
+            pass
+
+        logger.info(
+            "MQTT DISCOVERY: waiting for broker connection, attempt %s/20",
+            attempt + 1,
+        )
+        time.sleep(0.5)
+
+    if not connected:
+        logger.error(
+            "MQTT DISCOVERY: ABORT - broker did not connect within 10 seconds"
+        )
+        return
+
+    logger.warning("MQTT DISCOVERY: broker connection confirmed")
     # All sensors to publish via MQTT Discovery
     configs = [
 
