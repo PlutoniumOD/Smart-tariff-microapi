@@ -1,5 +1,4 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+FROM ghcr.io/home-assistant/base:latest
 
 # Add tzdata if needed; HA images already include bashio and s6
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
