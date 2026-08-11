@@ -1,5 +1,5 @@
 name: Smart Tariff Micro‑API
-version: "0.1.1"
+version: "0.1.2"
 slug: smart_tariff_api
 description: "Local micro‑API for Bright/DCC electricity & gas tariffs, consumption, costs. E7 + EV + Intelligent support with DST, MQTT, and REST."
 arch:
