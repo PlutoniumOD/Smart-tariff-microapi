@@ -243,7 +243,7 @@ def mqtt_discovery():
             "device_class": "monetary",
             "state_class": "total",
             "unit": "GBP",
-            "device_name": "Smart tariff Micro-API — Electricity",
+            "device_name": "Smart Tariff Micro-API — Electricity",
         },
 
 
