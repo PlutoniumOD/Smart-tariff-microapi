@@ -353,35 +353,35 @@ def mqtt_discovery():
         logger.warning("MQTT DISCOVERY: publishing %s → %s", cfg["object_id"], topic)
 
         try:
-        result = mqtt.client.publish(
-        topic,
-        json.dumps(payload),
-        qos=1,
-        retain=True,
-    )
-
-    result.wait_for_publish(timeout=5)
-
-    if result.rc == 0 and result.is_published():
-        logger.warning(
-            "MQTT DISCOVERY: OK %s -> %s",
-            cfg["object_id"],
+            result = mqtt.client.publish(
             topic,
-        )
-    else:
-        logger.error(
-            "MQTT DISCOVERY: FAILED %s rc=%s published=%s",
-            cfg["object_id"],
-            result.rc,
-            result.is_published(),
-        )
+            json.dumps(payload),
+            qos=1,
+            retain=True,
+            )
 
-except Exception as e:
-    logger.error(
-        "MQTT DISCOVERY: FAILED %s - %s",
-        cfg["object_id"],
-        e,
-    )
+            result.wait_for_publish(timeout=5)
+
+            if result.rc == 0 and result.is_published():
+                logger.warning(
+                    "MQTT DISCOVERY: OK %s -> %s",
+                    cfg["object_id"],
+                    topic,
+                )
+            else:
+                logger.error(
+                    "MQTT DISCOVERY: FAILED %s rc=%s published=%s",
+                    cfg["object_id"],
+                    result.rc,
+                    result.is_published(),
+                )
+        
+        except Exception as e:
+            logger.error(
+                "MQTT DISCOVERY: FAILED %s - %s",
+                cfg["object_id"],
+                e,
+            )
 
     logger.warning("MQTT DISCOVERY: completed")
 
