@@ -215,7 +215,7 @@ def mqtt_discovery():
             "state_topic": "smartenergy/electricity/current_rate",
             "value_template": "{{ value_json.rate | round(2) }}",
             "unit": "GBP/kWh",
-            "device_class": "monetary",
+            #"device_class": "monetary",
             "state_class": "measurement",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
@@ -225,7 +225,7 @@ def mqtt_discovery():
             "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.rate_peak | round(2) }}",
             "unit": "GBP/kWh",
-            "device_class": "monetary",
+            #"device_class": "monetary",
             "state_class": "measurement",
             "device_name": "Smart Tariff Micro‑API — Electricity"
         },
@@ -234,7 +234,7 @@ def mqtt_discovery():
             "name": "Electricity Off‑Peak Rate",
             "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.rate_offpeak | round(2) }}",
-             "device_class": "monetary",
+            #"device_class": "monetary",
             "state_class": "measurement",
             "unit": "GBP/kWh",
             "device_name": "Smart Tariff Micro‑API — Electricity"
@@ -244,7 +244,7 @@ def mqtt_discovery():
             "name": "Electricity Standing Charge",
             "state_topic": "smartenergy/electricity/tariff",
             "value_template": "{{ value_json.standing_charge | round(2) }}",
-            "device_class": "monetary",
+            #"device_class": "monetary",
             "state_class": "measurement",
             "unit": "GBP/day",
             "device_name": "Smart Tariff Micro‑API — Electricity"
@@ -279,7 +279,7 @@ def mqtt_discovery():
             "name": "Gas Current Rate",
             "state_topic": "smartenergy/gas/tariff",
             "value_template": "{{ value_json.rate | round(2) }}",
-            "device_class": "monetary",
+            #"device_class": "monetary",
             "state_class": "measurement",
             "unit": "GBP/kWh",
             "device_name": "Smart Tariff Micro‑API — Gas"
@@ -289,7 +289,7 @@ def mqtt_discovery():
             "name": "Gas Standing Charge",
             "state_topic": "smartenergy/gas/tariff",
             "value_template": "{{ value_json.standing_charge | round(2) }}",
-            "device_class": "monetary",
+            #"device_class": "monetary",
             "state_class": "measurement",
             "unit": "GBP/day",
             "device_name": "Smart Tariff Micro‑API — Gas"
@@ -322,11 +322,16 @@ def mqtt_discovery():
     # ------------------------------------------------
     for cfg in configs:
 
+        if "Electricity" in cfg["device_name"]:
+            device_identifier = "smart_tariff_microapi_electricity"
+        else:
+            device_identifier = "smart_tariff_microapi_gas"
+
         device_block = {
-            "identifiers": [cfg["device_name"]],
+            "identifiers": [device_identifier],
             "name": cfg["device_name"],
             "manufacturer": "PlutoniumOD Industries",
-            "model": "DCC‑Bright Engine"
+            "model": "DCC-Bright Engine",
         }
 
         topic = f"homeassistant/sensor/{cfg['object_id']}/config"
@@ -902,8 +907,8 @@ def electricity_cost_today():
 
         # Publish to MQTT
         mqtt_pub("electricity/cost_today", {
-            "kwh_offpeak": round(kwh_off, 1),
-            "kwh_peak": round(kwh_peak, 1),
+            "kwh_offpeak": round(kwh_off, 3),
+            "kwh_peak": round(kwh_peak, 3),
             "cost_total": round(cost, 2),
             "updated_utc": store["last_update"]
         })
@@ -959,7 +964,7 @@ def gas_cost_today():
         }
 
         mqtt_pub("gas/cost_today", {
-            "kwh": round(kwh, 1),
+            "kwh": round(kwh, 3),
             "cost_total": round(cost, 2),
             "updated_utc": store["last_update"]
         })
@@ -1082,6 +1087,52 @@ def debug_store_show():
     except Exception:
         path = None
     return {"path_hint": path or "/data (persistent add-on storage)", "store": store}
+
+@app.post("/debug/mqtt/rediscover")
+def debug_mqtt_rediscover():
+    if not mqtt:
+        raise HTTPException(
+            status_code=503,
+            detail="MQTT publisher is not initialised",
+        )
+
+    try:
+        connected = mqtt.client.is_connected()
+    except Exception:
+        connected = False
+
+    if not connected:
+        raise HTTPException(
+            status_code=503,
+            detail="MQTT publisher is not connected to the broker",
+        )
+
+    mqtt_discovery()
+
+    return {
+        "status": "discovery_republished",
+        "mqtt_connected": connected,
+    }
+
+@app.get("/debug/mqtt/status")
+def debug_mqtt_status():
+    if not mqtt:
+        return {
+            "publisher_initialised": False,
+            "connected": False,
+        }
+
+    try:
+        connected = mqtt.client.is_connected()
+    except Exception:
+        connected = False
+
+    return {
+        "publisher_initialised": True,
+        "connected": connected,
+        "topic_prefix": opts["mqtt"].get("topic_prefix"),
+        "discovery_prefix": "homeassistant",
+    }
 
 @app.post("/debug/store/reset")
 def debug_store_reset(offpeak: float | None = None,
